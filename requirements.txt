@@ -1,0 +1,8 @@
+flask==3.0.0
+langchain==0.1.0
+pinecone-client==2.2.4
+python-dotenv==1.0.0
+huggingface-hub==0.19.4
+langchain-pinecone==0.0.1
+sentence-transformers==2.2.2
+pypdf==3.17.1
