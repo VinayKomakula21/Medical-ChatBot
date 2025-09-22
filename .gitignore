@@ -35,9 +35,9 @@ ENV/
 *.swo
 
 # Project specific
-uploads/
+uploads/*
+!uploads/.gitkeep
 *.pdf
-model/
 
 # Logs
 *.log
@@ -45,3 +45,7 @@ model/
 # OS specific
 .DS_Store
 Thumbs.db 
+Makefile
+.env.example
+Dockerfile
+docker-compose.yml

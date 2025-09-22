@@ -1,0 +1,35 @@
+# Core FastAPI
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Validation
+pydantic
+pydantic-settings
+
+# AI/ML
+langchain
+langchain-community
+langchain-pinecone
+pinecone-client
+sentence-transformers
+huggingface-hub
+transformers
+
+# PDF Processing
+pypdf
+Pillow
+
+# NLP
+nltk
+
+# Utils
+python-dotenv
+aiofiles
+httpx
+websockets
+
+# Development (optional)
+pytest
+black
+ruff
