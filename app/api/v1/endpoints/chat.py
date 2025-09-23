@@ -5,8 +5,8 @@ import asyncio
 import logging
 
 from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
-# Use simple service since HF free tier doesn't support text generation models
-from app.services.chat_simple import chat_service
+# Use Groq service for fast, high-quality responses
+from app.services.chat_groq import groq_chat_service as chat_service
 from app.core.exceptions import LLMException
 
 logger = logging.getLogger(__name__)

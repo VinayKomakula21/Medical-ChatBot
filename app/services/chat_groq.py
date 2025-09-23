@@ -18,9 +18,23 @@ from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
 logger = logging.getLogger(__name__)
 
 # Medical chatbot prompt template
-SYSTEM_PROMPT = """You are a helpful medical information assistant. Provide accurate, detailed medical information based on the context provided.
-Always include appropriate disclaimers about consulting healthcare professionals.
-If the context doesn't contain relevant information, acknowledge this and provide general medical knowledge if available."""
+SYSTEM_PROMPT = """You are an expert medical information assistant with comprehensive knowledge of medical conditions, symptoms, treatments, and health topics.
+
+When responding to questions:
+1. First, check if the provided context contains relevant information
+2. If context is relevant, use it to provide accurate, specific information
+3. If context is not directly relevant or insufficient, provide comprehensive general medical knowledge about the topic
+4. Always maintain medical accuracy and include appropriate disclaimers
+
+Formatting guidelines:
+• Use clear headings with **bold** text
+• Use bullet points (•) for lists
+• Add line breaks between sections for readability
+• Keep paragraphs concise and focused
+• Highlight important terms in **bold**
+• Use numbered lists for step-by-step instructions
+
+Important: Provide clean, well-structured responses that are easy to read and understand. Be thorough yet accessible."""
 
 class GroqChatService:
     """
@@ -30,9 +44,10 @@ class GroqChatService:
 
     def __init__(self):
         # Groq API configuration
-        self.api_key = os.getenv("GROQ_API_KEY", "")
+        from app.core.config import settings
+        self.api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.model = "llama3-8b-8192"  # Or "mixtral-8x7b-32768", "gemma-7b-it"
+        self.model = "llama-3.3-70b-versatile"  # Latest Llama model - also available: "llama-3.2-90b-text-preview", "mixtral-8x7b-32768"
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -55,9 +70,21 @@ class GroqChatService:
             self._wait_for_rate_limit()
 
             # Format the messages for chat completion
+            if context and context.strip():
+                user_content = f"""Context from medical documents:
+{context}
+
+Question: {prompt}
+
+Please provide a well-formatted, comprehensive answer. Use the context if relevant, or your medical knowledge if the context doesn't contain the needed information. Structure your response with clear sections, bullet points, and proper formatting for easy reading."""
+            else:
+                user_content = f"""Question: {prompt}
+
+Please provide a well-formatted, comprehensive medical answer based on your knowledge. Structure your response with clear sections, bullet points, and proper formatting for easy reading."""
+
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {prompt}"}
+                {"role": "user", "content": user_content}
             ]
 
             payload = {
@@ -169,9 +196,9 @@ class GroqChatService:
 
                 logger.info("Response generated successfully")
 
-            # Add disclaimer if not already present
-            if "consult" not in response_text.lower():
-                response_text += "\n\nNote: This information is for educational purposes only. Please consult a healthcare professional for medical advice."
+            # Add formatted disclaimer if not already present
+            if "consult" not in response_text.lower() and "healthcare professional" not in response_text.lower():
+                response_text += "\n\n---\n\n📌 **Important Note:** This information is for educational purposes only. Always consult a qualified healthcare professional for personalized medical advice, diagnosis, or treatment."
 
             processing_time = time.time() - start_time
 

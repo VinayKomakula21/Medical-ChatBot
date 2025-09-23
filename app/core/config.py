@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = Field(default="medicbot", env="PINECONE_INDEX_NAME")
     PINECONE_DIMENSION: int = Field(default=384, env="PINECONE_DIMENSION")
 
+    # Groq settings
+    GROQ_API_KEY: Optional[str] = Field(default=None, env="GROQ_API_KEY")
+
     # HuggingFace settings
     HF_TOKEN: str = Field(..., env="HF_TOKEN")
     HF_MODEL_ID: str = Field(
