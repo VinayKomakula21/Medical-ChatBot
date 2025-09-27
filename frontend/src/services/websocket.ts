@@ -1,8 +1,8 @@
-import { ChatRequest, StreamingChatResponse } from '@/types';
+import type { ChatRequest, StreamingChatResponse } from '@/types';
 
 class WebSocketService {
   private ws: WebSocket | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: number | null = null;
   private messageHandlers: Map<string, (data: StreamingChatResponse) => void> = new Map();
   private connectionHandlers: Set<(connected: boolean) => void> = new Set();
   private reconnectAttempts = 0;
@@ -60,7 +60,7 @@ class WebSocketService {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
 
-    this.reconnectTimeout = setTimeout(() => {
+    this.reconnectTimeout = window.setTimeout(() => {
       console.log(`Attempting reconnection (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
       this.connect().catch(error => {
         console.error('Reconnection failed:', error);

@@ -1,4 +1,4 @@
-import { ChatMessage } from '@/types';
+import type { ChatMessage } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

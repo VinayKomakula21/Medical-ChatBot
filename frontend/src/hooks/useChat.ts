@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ChatMessage, ChatRequest, StreamingChatResponse } from '@/types';
+import type { ChatMessage, ChatRequest, StreamingChatResponse } from '@/types';
 import { apiService } from '@/services/api';
 import { wsService } from '@/services/websocket';
 

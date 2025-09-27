@@ -6,7 +6,7 @@ import { ChatInterface } from '@/components/chat/ChatInterface';
 import { DocumentUpload } from '@/components/upload/DocumentUpload';
 import { Settings as SettingsPanel } from '@/components/settings/Settings';
 import { useChat } from '@/hooks/useChat';
-import { Settings } from '@/types';
+import type { Settings } from '@/types';
 
 function App() {
   const [uploadOpen, setUploadOpen] = useState(false);

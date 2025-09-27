@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { ChatMessage } from '@/types';
+import type { ChatMessage } from '@/types';
 import { MessageSquare } from 'lucide-react';
 
 interface ChatInterfaceProps {
