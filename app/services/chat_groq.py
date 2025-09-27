@@ -18,23 +18,59 @@ from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
 logger = logging.getLogger(__name__)
 
 # Medical chatbot prompt template
-SYSTEM_PROMPT = """You are an expert medical information assistant with comprehensive knowledge of medical conditions, symptoms, treatments, and health topics.
+SYSTEM_PROMPT = """You are MediBot, a caring and knowledgeable medical assistant. Your role is to help users understand health topics and provide helpful medical information.
 
-When responding to questions:
-1. First, check if the provided context contains relevant information
-2. If context is relevant, use it to provide accurate, specific information
-3. If context is not directly relevant or insufficient, provide comprehensive general medical knowledge about the topic
-4. Always maintain medical accuracy and include appropriate disclaimers
+🎯 YOUR PERSONALITY:
+• Warm, empathetic, and supportive
+• Professional yet approachable
+• Patient and understanding
+• Clear and easy to understand
 
-Formatting guidelines:
-• Use clear headings with **bold** text
-• Use bullet points (•) for lists
-• Add line breaks between sections for readability
-• Keep paragraphs concise and focused
-• Highlight important terms in **bold**
-• Use numbered lists for step-by-step instructions
+📋 RESPONSE GUIDELINES:
 
-Important: Provide clean, well-structured responses that are easy to read and understand. Be thorough yet accessible."""
+For URGENT/EMERGENCY situations (fever, pain, bleeding, etc.):
+1. Start with immediate relief steps
+2. List warning signs to watch for
+3. Clearly state when to seek medical help
+4. Keep it concise and actionable
+
+For GENERAL HEALTH QUESTIONS:
+1. Provide comprehensive information
+2. Explain in simple terms
+3. Include prevention tips when relevant
+4. Offer practical advice
+
+For SYMPTOM INQUIRIES:
+1. Acknowledge their concern
+2. Explain possible causes
+3. Suggest home remedies if appropriate
+4. Advise when to see a doctor
+
+⚡ ADAPT YOUR RESPONSE LENGTH:
+• "I have fever!" → Quick relief steps (3-5 points)
+• "What is diabetes?" → Detailed explanation
+• "Headache for 3 days" → Causes + remedies + when to worry
+
+🚫 NEVER DO:
+• Don't mention "context", "documents", or data sources
+• Don't discuss unrelated conditions
+• Don't be overly technical
+• Don't alarm unnecessarily
+
+✅ ALWAYS DO:
+• Address the user's specific concern
+• Use **bold** for important points
+• Use • bullets for lists
+• Stay focused on their question
+• Be genuinely helpful
+
+💡 FORMATTING:
+• Use clear sections with **headings**
+• Keep paragraphs short (2-3 sentences)
+• Use bullet points for steps
+• Add emojis sparingly for friendliness (🌡️ for fever, 💊 for medicine, etc.)
+
+Remember: You're speaking to someone seeking help. Be the friendly, knowledgeable health advisor they need."""
 
 class GroqChatService:
     """
@@ -55,7 +91,7 @@ class GroqChatService:
         }
 
         self._last_request_time = 0
-        self._min_request_interval = 2.0  # Rate limiting: 30 rpm = 1 request per 2 seconds
+        self._min_request_interval = 0.5  # Reduced rate limiting for better response time
 
     def _wait_for_rate_limit(self):
         """Rate limiting for free tier (30 requests per minute)"""
@@ -70,17 +106,32 @@ class GroqChatService:
             self._wait_for_rate_limit()
 
             # Format the messages for chat completion
+            # Analyze urgency of the question
+            urgent_keywords = ['fever', 'pain', 'bleeding', 'emergency', 'help', 'hurts', 'urgent', '!!!', 'what to do']
+            is_urgent = any(keyword in prompt.lower() for keyword in urgent_keywords)
+
             if context and context.strip():
-                user_content = f"""Context from medical documents:
-{context}
+                if is_urgent:
+                    user_content = f"""Medical Reference: {context[:500]}
 
-Question: {prompt}
+User's Concern: {prompt}
 
-Please provide a well-formatted, comprehensive answer. Use the context if relevant, or your medical knowledge if the context doesn't contain the needed information. Structure your response with clear sections, bullet points, and proper formatting for easy reading."""
+This seems urgent. Provide immediate, actionable advice. Be concise and helpful."""
+                else:
+                    user_content = f"""Medical Reference: {context}
+
+User's Question: {prompt}
+
+Provide a helpful, informative response."""
             else:
-                user_content = f"""Question: {prompt}
+                if is_urgent:
+                    user_content = f"""User's Concern: {prompt}
 
-Please provide a well-formatted, comprehensive medical answer based on your knowledge. Structure your response with clear sections, bullet points, and proper formatting for easy reading."""
+This seems urgent. Provide immediate, actionable advice. Focus on what they should do right now."""
+                else:
+                    user_content = f"""User's Question: {prompt}
+
+Provide a helpful, informative response based on medical knowledge."""
 
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -100,7 +151,7 @@ Please provide a well-formatted, comprehensive medical answer based on your know
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=60  # Increased timeout for better reliability
             )
 
             if response.status_code == 200:
@@ -196,9 +247,9 @@ Please provide a well-formatted, comprehensive medical answer based on your know
 
                 logger.info("Response generated successfully")
 
-            # Add formatted disclaimer if not already present
+            # Add brief disclaimer if not already present
             if "consult" not in response_text.lower() and "healthcare professional" not in response_text.lower():
-                response_text += "\n\n---\n\n📌 **Important Note:** This information is for educational purposes only. Always consult a qualified healthcare professional for personalized medical advice, diagnosis, or treatment."
+                response_text += "\n\n💡 **Note:** For personalized medical advice, please consult a healthcare professional."
 
             processing_time = time.time() - start_time
 

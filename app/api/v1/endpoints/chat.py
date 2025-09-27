@@ -101,11 +101,19 @@ async def websocket_endpoint(websocket: WebSocket):
             if request.stream:
                 # Stream response chunks
                 async for chunk in chat_service.generate_streaming_response(request):
-                    await websocket.send_json(chunk.dict())
+                    response_data = chunk.dict()
+                    # Convert UUID to string
+                    if 'conversation_id' in response_data and response_data['conversation_id']:
+                        response_data['conversation_id'] = str(response_data['conversation_id'])
+                    await websocket.send_json(response_data)
             else:
                 # Send complete response
                 response = await chat_service.generate_response(request)
-                await websocket.send_json(response.dict())
+                response_data = response.dict()
+                # Convert UUID to string
+                if 'conversation_id' in response_data and response_data['conversation_id']:
+                    response_data['conversation_id'] = str(response_data['conversation_id'])
+                await websocket.send_json(response_data)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
