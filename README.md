@@ -62,7 +62,11 @@ pip install -r requirements.txt
 
 4. **Run the application**
 ```bash
+# Option 1: Using uvicorn directly (recommended for development)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Option 2: Using Python module
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 5. **Access the application**

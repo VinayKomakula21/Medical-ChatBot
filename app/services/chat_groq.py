@@ -14,6 +14,8 @@ import json
 from app.core.config import settings
 from app.core.exceptions import LLMException, VectorStoreException
 from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
+from app.repositories.chat import chat_repository
+from app.repositories.document import document_repository
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +195,21 @@ Provide a helpful, informative response based on medical knowledge."""
         try:
             logger.info(f"Processing chat request with Groq: {request.message[:100]}...")
 
+            # Store user message in conversation history
+            await chat_repository.add_message(
+                conversation_id=conversation_id,
+                role="user",
+                content=request.message
+            )
+
+            # Get conversation context if this is a continuing conversation
+            conversation_context = ""
+            if request.conversation_id:
+                conversation_context = await chat_repository.get_conversation_context(
+                    conversation_id=conversation_id,
+                    max_messages=6  # Last 3 exchanges
+                )
+
             # Search for relevant documents
             sources = []
             context = ""
@@ -246,6 +263,13 @@ Provide a helpful, informative response based on medical knowledge."""
                 )
 
                 logger.info("Response generated successfully")
+
+            # Store assistant's response in conversation history
+            await chat_repository.add_message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=response_text
+            )
 
             # Add brief disclaimer if not already present
             if "consult" not in response_text.lower() and "healthcare professional" not in response_text.lower():
@@ -307,10 +331,20 @@ Provide a helpful, informative response based on medical knowledge."""
             )
 
     async def get_conversation_history(self, conversation_id: UUID) -> List[Dict[str, Any]]:
-        return []
+        """Get conversation history from repository."""
+        messages = await chat_repository.get_messages(conversation_id)
+        return [
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "timestamp": msg.timestamp.isoformat()
+            }
+            for msg in messages
+        ]
 
     async def clear_conversation(self, conversation_id: UUID) -> bool:
-        return True
+        """Clear conversation history."""
+        return await chat_repository.clear_messages(conversation_id)
 
 # Singleton instance
 groq_chat_service = GroqChatService()
