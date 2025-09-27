@@ -15,11 +15,45 @@ class ChatMessage(BaseModel):
         return v
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=5000, description="User message")
-    conversation_id: Optional[UUID] = Field(default=None, description="Conversation ID for context")
-    stream: bool = Field(default=False, description="Enable streaming response")
-    temperature: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="LLM temperature")
-    max_tokens: Optional[int] = Field(default=None, ge=1, le=2048, description="Maximum response tokens")
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="User message",
+        example="What are the symptoms of diabetes?"
+    )
+    conversation_id: Optional[UUID] = Field(
+        default=None,
+        description="Conversation ID for context"
+    )
+    stream: bool = Field(
+        default=False,
+        description="Enable streaming response"
+    )
+    temperature: Optional[float] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="LLM temperature (0.0 = deterministic, 1.0 = creative)"
+    )
+    max_tokens: Optional[int] = Field(
+        default=512,
+        ge=1,
+        le=2048,
+        description="Maximum response tokens"
+    )
+
+    @validator("message")
+    def validate_message(cls, v):
+        # Remove excessive whitespace
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("Message cannot be empty or just whitespace")
+        # Check for potential injection attempts
+        dangerous_patterns = ["<script", "javascript:", "onclick", "onerror"]
+        if any(pattern in v.lower() for pattern in dangerous_patterns):
+            raise ValueError("Message contains potentially dangerous content")
+        return v
 
     class Config:
         json_schema_extra = {

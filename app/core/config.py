@@ -59,10 +59,11 @@ class Settings(BaseSettings):
         env="UPLOAD_DIR"
     )
 
-    # Security settings
-    SECRET_KEY: str = Field(
-        default="your-secret-key-here-change-in-production",
-        env="SECRET_KEY"
+    # Security settings (Optional - for future authentication implementation)
+    SECRET_KEY: Optional[str] = Field(
+        default=None,
+        env="SECRET_KEY",
+        description="Secret key for JWT/session encryption (optional - for future use)"
     )
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")

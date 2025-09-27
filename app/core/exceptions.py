@@ -67,3 +67,24 @@ class AuthorizationException(BaseAPIException):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to perform this action"
         )
+
+class ValidationException(BaseAPIException):
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail
+        )
+
+class ConversationNotFoundException(BaseAPIException):
+    def __init__(self, conversation_id: str):
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Conversation with ID '{conversation_id}' not found"
+        )
+
+class InternalServerException(BaseAPIException):
+    def __init__(self, detail: str = "Internal server error"):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail
+        )

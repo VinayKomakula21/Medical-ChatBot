@@ -1,19 +1,23 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query, Form
-from typing import List, Optional, Dict, Any
+import json
 import logging
+from typing import Any, Dict, List, Optional
 
+from fastapi import APIRouter, File, Form, Query, UploadFile
+
+from app.core.exceptions import (
+    DocumentNotFoundException,
+    FileSizeLimitException,
+    InternalServerException,
+    InvalidFileFormatException,
+    ValidationException,
+)
 from app.models.document import (
-    DocumentUploadResponse,
-    DocumentListResponse,
     DocumentDeleteResponse,
-    DocumentSearchRequest
+    DocumentListResponse,
+    DocumentSearchRequest,
+    DocumentUploadResponse,
 )
 from app.services.document import document_service
-from app.core.exceptions import (
-    InvalidFileFormatException,
-    FileSizeLimitException,
-    DocumentNotFoundException
-)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,10 +34,9 @@ async def upload_document(
         metadata_dict = None
         if custom_metadata:
             try:
-                import json
                 metadata_dict = json.loads(custom_metadata)
             except json.JSONDecodeError:
-                raise HTTPException(status_code=400, detail="Invalid metadata JSON")
+                raise ValidationException("Invalid metadata JSON")
 
         response = await document_service.upload_document(
             file=file,
@@ -48,7 +51,7 @@ async def upload_document(
         raise e
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise InternalServerException(str(e))
 
 @router.get("/", response_model=DocumentListResponse)
 async def list_documents(
@@ -64,7 +67,7 @@ async def list_documents(
 
     except Exception as e:
         logger.error(f"Error listing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise InternalServerException(str(e))
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
 async def delete_document(document_id: str) -> DocumentDeleteResponse:
@@ -81,7 +84,7 @@ async def delete_document(document_id: str) -> DocumentDeleteResponse:
         raise e
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise InternalServerException(str(e))
 
 @router.post("/search")
 async def search_documents(request: DocumentSearchRequest) -> List[Dict[str, Any]]:
@@ -95,7 +98,7 @@ async def search_documents(request: DocumentSearchRequest) -> List[Dict[str, Any
 
     except Exception as e:
         logger.error(f"Error searching documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise InternalServerException(str(e))
 
 @router.get("/{document_id}/metadata")
 async def get_document_metadata(document_id: str) -> Dict[str, Any]:
@@ -121,4 +124,4 @@ async def get_document_metadata(document_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid document ID format")
     except Exception as e:
         logger.error(f"Error fetching document metadata: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise InternalServerException(str(e))
