@@ -36,7 +36,7 @@ def init_pinecone() -> Pinecone:
 
     return _pinecone_client
 
-def get_index():
+def get_index() -> Any:
     """Get Pinecone index directly"""
     global _index
 

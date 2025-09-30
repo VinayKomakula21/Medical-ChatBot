@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List, Dict, Any
 import PyPDF2
 from PIL import Image
-import io
 
 logger = logging.getLogger(__name__)
 

@@ -66,6 +66,7 @@ function App() {
             messages={messages}
             loading={loading}
             onSendMessage={handleSendMessage}
+            wsConnected={wsConnected}
           />
         </main>
 
