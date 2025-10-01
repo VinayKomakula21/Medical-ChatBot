@@ -63,14 +63,8 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/10">
-      {/* Connection Status Indicator */}
-      {wsConnected !== undefined && (
-        <div className={cn(
-          "h-1 transition-all duration-500",
-          wsConnected ? "bg-gradient-to-r from-green-500/50 to-emerald-500/50" : "bg-gradient-to-r from-red-500/50 to-orange-500/50"
-        )} />
-      )}
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-100 via-purple-50 to-slate-100">
+      {/* Connection Status Indicator - removed for cleaner look */}
 
       <div
         ref={scrollContainerRef}
@@ -79,53 +73,47 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
         onScroll={handleScroll}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px] text-center py-12 space-y-6">
+          <div className="flex flex-col items-center justify-center min-h-[500px] text-center py-16 space-y-8 animate-fade-in">
             <div className="relative">
-              <div className="absolute inset-0 animate-pulse bg-primary/20 rounded-full blur-3xl" />
-              <Sparkles className="h-16 w-16 text-primary relative animate-pulse" />
+              <div className="w-20 h-20 rounded-full gradient-purple-blue flex items-center justify-center shadow-lg">
+                <Sparkles className="h-10 w-10 text-white" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <div className="space-y-3">
+              <h2 className="text-3xl font-bold text-slate-800">
                 Medical ChatBot
               </h2>
-              <p className="text-muted-foreground max-w-md text-sm">
-                Your AI-powered health assistant. Ask medical questions or upload documents for analysis.
+              <p className="text-slate-600 max-w-md text-base leading-relaxed">
+                Your AI-powered health assistant. Ask any medical question.
               </p>
             </div>
 
-            {/* Quick Action Buttons */}
-            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+            {/* Quick Action Pills */}
+            <div className="flex flex-wrap gap-3 justify-center max-w-2xl">
               {quickActions.map((action, index) => (
                 <Button
                   key={index}
                   variant="outline"
-                  size="sm"
                   onClick={() => handleQuickAction(action.query)}
-                  className="group hover:scale-105 transition-all duration-200"
+                  className="rounded-full px-5 py-5 text-sm font-medium bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200"
                 >
-                  <action.icon className="h-4 w-4 mr-2 group-hover:text-primary transition-colors" />
+                  <action.icon className="h-4 w-4 mr-2 text-purple-600" />
                   {action.label}
                 </Button>
               ))}
             </div>
 
             {/* Tips */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary" className="animate-in fade-in-0 slide-in-from-bottom-2">
-                💡 Tip: Upload medical documents for better context
-              </Badge>
+            <div className="flex flex-col items-center gap-3 text-sm text-slate-500">
+              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-200 shadow-sm">
+                <span className="text-purple-600">💡</span>
+                <span>Upload medical documents for personalized insights</span>
+              </div>
             </div>
           </div>
         ) : (
           <div className="space-y-4 max-w-4xl mx-auto pb-4">
-            {/* Header for conversation */}
-            <div className="text-center py-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
-              <p className="text-xs text-muted-foreground flex items-center justify-center gap-2">
-                <Activity className="h-3 w-3" />
-                Medical Information Assistant
-                {wsConnected && <span className="text-green-500">• Connected</span>}
-              </p>
-            </div>
+            {/* Header for conversation - removed */}
 
             {messages.map((message, index) => (
               <div
@@ -144,15 +132,17 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
 
             {/* Typing Indicator */}
             {loading && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex gap-3">
-                <div className="h-8 w-8" />
-                <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
+              <div className="flex gap-3 items-start">
+                <div className="w-10 h-10 rounded-full gradient-purple-blue flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-xs text-muted-foreground">Medical Bot is typing...</span>
+                  <span className="text-sm text-slate-500">Analyzing data, please wait...</span>
                 </div>
               </div>
             )}
@@ -167,10 +157,9 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
         <Button
           onClick={() => scrollToBottom()}
           size="icon"
-          className="absolute bottom-24 right-6 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2"
-          variant="secondary"
+          className="absolute bottom-24 right-6 rounded-full shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 gradient-purple-blue hover:shadow-xl"
         >
-          <ArrowDown className="h-4 w-4 animate-bounce" />
+          <ArrowDown className="h-4 w-4 animate-bounce text-white" />
         </Button>
       )}
 

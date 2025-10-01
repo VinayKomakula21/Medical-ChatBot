@@ -20,93 +20,75 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
 
   return (
     <div className={cn(
-      "flex gap-3 group",
+      "flex gap-3 items-start",
       isUser ? 'flex-row-reverse' : ''
     )}>
-      <Avatar className={cn(
-        "h-10 w-10 shrink-0 border-2 transition-all duration-300",
-        isUser ? 'border-primary/20' : 'border-secondary',
-        "group-hover:scale-105"
-      )}>
-        <AvatarFallback className={cn(
-          isUser ? 'bg-gradient-to-br from-primary to-primary/80' : 'bg-gradient-to-br from-blue-500 to-cyan-500',
-          "text-white"
-        )}>
-          {isUser ? <User className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
-        </AvatarFallback>
-      </Avatar>
+      {!isUser && (
+        <Avatar className="h-10 w-10 shrink-0 gradient-purple-blue shadow-sm">
+          <AvatarFallback className="text-white bg-transparent">
+            <Sparkles className="h-5 w-5" />
+          </AvatarFallback>
+        </Avatar>
+      )}
+      {isUser && (
+        <Avatar className="h-10 w-10 shrink-0 gradient-purple-blue shadow-sm">
+          <AvatarFallback className="text-white bg-transparent">
+            <User className="h-5 w-5" />
+          </AvatarFallback>
+        </Avatar>
+      )}
 
       <div className={cn(
-        "flex flex-col gap-2 max-w-[75%]",
+        "flex flex-col gap-1 max-w-[70%]",
         isUser ? 'items-end' : 'items-start'
       )}>
-        <div className="flex items-center gap-2 px-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            {isUser ? 'You' : '🏥 Medical Assistant'}
-          </span>
-          <Clock className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
-            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-          {isUser && (
-            <CheckCheck className="h-3 w-3 text-muted-foreground" />
-          )}
-          {isUrgent && !isUser && (
-            <AlertCircle className="h-3 w-3 text-orange-500 animate-pulse" />
-          )}
-        </div>
-
         <Card className={cn(
-          "relative transition-shadow duration-200",
+          "relative transition-all duration-200 shadow-sm",
           isUser
-            ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary/20'
-            : 'bg-card hover:shadow-lg border border-border'
+            ? 'gradient-purple-blue text-white rounded-3xl px-4 py-3 border-0'
+            : 'bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:shadow-md'
         )}>
-          {/* Decorative gradient overlay */}
-          {!isUser && (
-            <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500/30 via-cyan-500/30 to-blue-500/30" />
-          )}
+          {/* Chat bubble tail removed for cleaner look like reference */}
 
-          <div className="px-4 py-3">
-            {isUser ? (
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
-            ) : (
-              <div className="space-y-3 text-foreground">
+          {isUser ? (
+            <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          ) : (
+            <div className="space-y-2 text-slate-700">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
                     // Paragraphs with proper spacing
                     p: ({children}) => (
-                      <p className="text-sm leading-relaxed mb-3 last:mb-0">{children}</p>
+                      <p className="text-sm leading-relaxed mb-2 last:mb-0 text-slate-700">{children}</p>
                     ),
                     // Lists with better formatting
                     ul: ({children}) => (
-                      <ul className="list-disc list-inside space-y-2 my-3 ml-2">{children}</ul>
+                      <ul className="list-disc list-inside space-y-1.5 my-2 ml-1">{children}</ul>
                     ),
                     ol: ({children}) => (
-                      <ol className="list-decimal list-inside space-y-2 my-3 ml-2">{children}</ol>
+                      <ol className="list-decimal list-inside space-y-1.5 my-2 ml-1">{children}</ol>
                     ),
                     li: ({children}) => (
-                      <li className="text-sm leading-relaxed">
-                        <span className="ml-2">{children}</span>
+                      <li className="text-sm leading-relaxed text-slate-700">
+                        <span className="ml-1">{children}</span>
                       </li>
                     ),
                     // Strong text (bold)
                     strong: ({children}) => (
-                      <strong className="font-semibold text-foreground">{children}</strong>
+                      <strong className="font-semibold text-slate-900">{children}</strong>
                     ),
                     // Emphasized text
                     em: ({children}) => (
-                      <em className="italic text-muted-foreground">{children}</em>
+                      <em className="italic text-slate-600">{children}</em>
                     ),
                     // Code blocks
                     code: ({children, ...props}: any) => {
                       const inline = !props.className;
                       return inline ? (
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
+                        <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono text-slate-800">{children}</code>
                       ) : (
-                        <pre className="bg-muted p-3 rounded-lg overflow-x-auto">
-                          <code className="text-xs font-mono">{children}</code>
+                        <pre className="bg-slate-100 p-3 rounded-lg overflow-x-auto my-2">
+                          <code className="text-xs font-mono text-slate-800">{children}</code>
                         </pre>
                       );
                     },
@@ -144,25 +126,34 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
                   {message.content}
                 </ReactMarkdown>
                 {isStreaming && message.content && (
-                  <span className="inline-block w-2 h-4 ml-1 bg-primary/60 animate-pulse rounded" />
+                  <span className="inline-block w-1.5 h-4 ml-1 bg-slate-400 animate-pulse rounded" />
                 )}
               </div>
             )}
-          </div>
         </Card>
 
+        {/* Timestamp below message */}
+        <div className={cn(
+          "flex items-center gap-1.5 px-2 text-xs text-slate-500",
+          isUser ? 'justify-end' : 'justify-start'
+        )}>
+          <Clock className="h-3 w-3" />
+          <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          {isUser && <CheckCheck className="h-3 w-3" />}
+        </div>
+
         {message.sources && message.sources.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className={cn("flex flex-wrap gap-2 mt-1", isUser ? 'justify-end' : 'justify-start')}>
             {message.sources.map((source, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                <FileText className="h-3 w-3 mr-1" />
-                {source.filename || source.document || `Source ${index + 1}`}
+              <div key={index} className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 text-xs">
+                <FileText className="h-3 w-3 text-slate-500" />
+                <span className="text-slate-700 font-medium">{source.filename || source.document || `Source ${index + 1}`}</span>
                 {source.score && (
-                  <span className="ml-1 opacity-70">
-                    ({(source.score * 100).toFixed(0)}%)
+                  <span className="text-slate-500">
+                    {(source.score * 100).toFixed(0)}%
                   </span>
                 )}
-              </Badge>
+              </div>
             ))}
           </div>
         )}
