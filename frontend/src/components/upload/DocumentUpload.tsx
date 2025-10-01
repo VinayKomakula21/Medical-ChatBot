@@ -102,11 +102,14 @@ export function DocumentUpload({ open, onOpenChange }: DocumentUploadProps) {
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                ${isDragActive ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary'}`}
+                ${isDragActive
+                  ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                  : 'border-muted-foreground/25 dark:border-muted-foreground/40 hover:border-primary dark:hover:border-primary'
+                }`}
             >
               <input {...getInputProps()} />
-              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
+              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground dark:text-muted-foreground" />
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 {isDragActive
                   ? 'Drop the file here...'
                   : 'Drag and drop a file here, or click to browse'}
@@ -114,12 +117,12 @@ export function DocumentUpload({ open, onOpenChange }: DocumentUploadProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-muted/50 dark:bg-slate-800/50">
                 <div className="flex items-center space-x-3">
-                  <FileText className="h-8 w-8 text-primary" />
+                  <FileText className="h-8 w-8 text-primary dark:text-primary" />
                   <div>
-                    <p className="font-medium">{selectedFile.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">{selectedFile.name}</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                       {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
@@ -137,7 +140,7 @@ export function DocumentUpload({ open, onOpenChange }: DocumentUploadProps) {
 
               {uploading && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-sm text-foreground">
                     <span>Uploading...</span>
                     <span>{Math.round(progress)}%</span>
                   </div>
