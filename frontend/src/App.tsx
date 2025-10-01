@@ -18,7 +18,7 @@ function App() {
     }
     return {
       temperature: 0.5,
-      maxTokens: 512,
+      maxTokens: 200,
       streamMode: false,
       theme: 'system',
     };

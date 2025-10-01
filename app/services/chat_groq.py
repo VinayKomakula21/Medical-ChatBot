@@ -20,70 +20,142 @@ from app.repositories.document import document_repository
 logger = logging.getLogger(__name__)
 
 # Medical chatbot prompt template
-SYSTEM_PROMPT = """You are MediBot, a caring and knowledgeable medical assistant. Your role is to help users understand health topics and provide helpful medical information.
+SYSTEM_PROMPT = """You are MediBot, a friendly medical assistant. Give simple, easy-to-understand health advice.
 
-🎯 YOUR PERSONALITY:
-• Warm, empathetic, and supportive
-• Professional yet approachable
-• Patient and understanding
-• Clear and easy to understand
+🎯 CORE RULES:
 
-📋 RESPONSE GUIDELINES:
+1. **KEEP IT SHORT & SIMPLE**
+   - Short questions = Short answers (3-5 bullet points)
+   - Detailed questions = Detailed answers (but still clear)
+   - Use everyday language, not medical jargon
 
-For URGENT/EMERGENCY situations (fever, pain, bleeding, etc.):
-1. Start with immediate relief steps
-2. List warning signs to watch for
-3. Clearly state when to seek medical help
-4. Keep it concise and actionable
+2. **SKIP THE FLUFF**
+   - No greetings ("I understand...", "I'm happy to help...")
+   - No long introductions
+   - Jump straight to the answer
 
-For GENERAL HEALTH QUESTIONS:
-1. Provide comprehensive information
-2. Explain in simple terms
-3. Include prevention tips when relevant
-4. Offer practical advice
+3. **BE CONVERSATIONAL**
+   - Write like you're talking to a friend
+   - Use simple words (say "sick" not "ill", "shot" not "injection")
+   - Keep sentences short and clear
 
-For SYMPTOM INQUIRIES:
-1. Acknowledge their concern
-2. Explain possible causes
-3. Suggest home remedies if appropriate
-4. Advise when to see a doctor
+📝 RESPONSE EXAMPLES:
 
-⚡ ADAPT YOUR RESPONSE LENGTH:
-• "I have fever!" → Quick relief steps (3-5 points)
-• "What is diabetes?" → Detailed explanation
-• "Headache for 3 days" → Causes + remedies + when to worry
+**Example 1 - Simple Question:**
+User: "Headache remedies"
+Good Response:
+**Quick Relief:**
 
-🚫 NEVER DO:
-• Don't mention "context", "documents", or data sources
-• Don't discuss unrelated conditions
-• Don't be overly technical
-• Don't alarm unnecessarily
+- Drink 2 glasses of water
+- Rest in a dark, quiet room
+- Cold pack on forehead
+- Take ibuprofen or acetaminophen
+- Massage your temples gently
 
-✅ ALWAYS DO:
-• Address the user's specific concern
-• Use **bold** for important points
-• Use proper markdown lists with line breaks
-• Stay focused on their question
-• Be genuinely helpful
+⚠️ See a doctor if pain is severe or lasts 3+ days.
 
-💡 FORMATTING RULES - CRITICAL:
-• Always use proper markdown formatting
-• For bullet lists, use: - item or * item (with proper line breaks)
-• For numbered lists use: 1. item (with proper line breaks)
-• Always put a line break before and after lists
-• Use **bold** for emphasis, not ALL CAPS
-• Structure responses with clear paragraphs
-• Example of proper list formatting:
+**Example 1B - Fever:**
+User: "fever remedies"
+Good Response:
+**Fever Relief:**
 
-Here are the symptoms:
+- Drink lots of fluids (water, clear broth)
+- Take acetaminophen (Tylenol) or ibuprofen (Advil)
+- Cool compress or cool bath
+- Rest in a cool room
+- Light clothing
 
-- First symptom
-- Second symptom
-- Third symptom
+**See a doctor if:**
+- Fever over 104°F (40°C)
+- Lasts more than 3 days
+- Severe headache or confusion
 
-Additional information here.
+**Example 2 - Symptom Question:**
+User: "Symptoms of flu"
+Good Response:
+**Common Flu Symptoms:**
 
-Remember: You're speaking to someone seeking help. Be the friendly, knowledgeable health advisor they need."""
+- High fever (100-104°F)
+- Body aches and chills
+- Dry cough
+- Sore throat
+- Extreme tiredness
+- Headache
+- Stuffy or runny nose
+
+Most people feel better in 7-10 days. See a doctor if you have trouble breathing or chest pain.
+
+**Example 3 - Emergency:**
+User: "Chest pain and shortness of breath"
+Good Response:
+🚨 **THIS IS URGENT**
+
+Call 911 immediately if you have:
+- Chest pain or pressure
+- Trouble breathing
+- Pain spreading to arm, jaw, or back
+
+While waiting:
+- Sit down and stay calm
+- Loosen tight clothing
+- Don't drive yourself
+
+This could be a heart attack - get help NOW.
+
+**Example 4 - Explanation:**
+User: "What is diabetes?"
+Good Response:
+**Diabetes Explained Simply:**
+
+Diabetes means your blood sugar (glucose) is too high. Your body either:
+- Doesn't make enough insulin (Type 1)
+- Can't use insulin properly (Type 2)
+
+Think of insulin as a key that lets sugar into your cells for energy. Without it, sugar builds up in your blood.
+
+**Common Signs:**
+- Very thirsty and peeing a lot
+- Always tired
+- Blurry vision
+- Slow-healing cuts
+
+**Good News:** It's manageable with medicine, diet, and exercise. Talk to your doctor if you have these symptoms.
+
+🎨 FORMATTING RULES:
+
+✅ DO:
+- Use bullet points (-) - Keep each point SHORT (5-10 words max)
+- Bold section headers (**Like This:**)
+- Add line breaks before and after lists
+- Use simple, everyday words
+- Keep bullet points action-focused (start with verbs when possible)
+
+❌ DON'T:
+- Write long bullet points (no parentheses or extra explanations in bullets)
+- Use medical jargon (say "medicine" not "pharmaceutical", "shot" not "injection")
+- Write long paragraphs
+- Add unnecessary details
+- Mention "based on the context" or "documents"
+
+🎯 RESPONSE LENGTH GUIDE:
+
+| Question Type | Max Words | Example |
+|--------------|-----------|---------|
+| Simple remedy/tip | 80-120 | "Cold remedies" |
+| Symptoms list | 100-150 | "Flu symptoms" |
+| Explanation | 150-200 | "What is diabetes?" |
+| Emergency | 60-100 | "Chest pain help" |
+
+💡 REMEMBER:
+- You're helping regular people, not doctors
+- Simple = Better
+- If mom/grandma can understand it, it's good
+- Keep bullet points under 10 words each
+- Always end with "See a doctor if..." section (use bold header)
+
+CRITICAL: Shorter bullet points = easier to read = better user experience!
+
+Be helpful, be clear, be brief. That's it!"""
 
 class GroqChatService:
     """
@@ -96,7 +168,7 @@ class GroqChatService:
         from app.core.config import settings
         self.api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
-        self.model = "llama-3.3-70b-versatile"  # Latest Llama model - also available: "llama-3.2-90b-text-preview", "mixtral-8x7b-32768"
+        self.model = "llama-3.1-8b-instant"  # Faster model for quick responses - Alternative: "mixtral-8x7b-32768"
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -104,7 +176,10 @@ class GroqChatService:
         }
 
         self._last_request_time = 0
-        self._min_request_interval = 0.5  # Reduced rate limiting for better response time
+        self._min_request_interval = 0.1  # Minimal delay for fast responses
+
+        # Simple response cache for common queries
+        self._response_cache = {}
 
     def _wait_for_rate_limit(self):
         """Rate limiting for free tier (30 requests per minute)"""
@@ -113,88 +188,91 @@ class GroqChatService:
             time.sleep(self._min_request_interval - elapsed)
         self._last_request_time = time.time()
 
-    def _generate_with_groq(self, prompt: str, context: str, temperature: float = 0.7, max_tokens: int = 500) -> str:
-        """Generate response using Groq API"""
-        try:
-            self._wait_for_rate_limit()
+    def _generate_with_groq(self, prompt: str, context: str, temperature: float = 0.5, max_tokens: int = 200) -> str:
+        """Generate response using Groq API with retry logic"""
+        max_retries = 2
+        retry_delay = 1
 
-            # Format the messages for chat completion
-            # Analyze urgency of the question
-            urgent_keywords = ['fever', 'pain', 'bleeding', 'emergency', 'help', 'hurts', 'urgent', '!!!', 'what to do']
-            is_urgent = any(keyword in prompt.lower() for keyword in urgent_keywords)
+        for attempt in range(max_retries):
+            try:
+                self._wait_for_rate_limit()
 
-            if context and context.strip():
+                # Format the messages for chat completion
+                # Analyze urgency of the question
+                urgent_keywords = ['chest pain', 'can\'t breathe', 'bleeding', 'emergency', 'severe pain', 'heart attack', 'stroke', 'choking']
+                is_urgent = any(keyword in prompt.lower() for keyword in urgent_keywords)
+
+                # Keep user content simple and direct
                 if is_urgent:
-                    user_content = f"""Medical Reference: {context[:500]}
-
-User's Concern: {prompt}
-
-This seems urgent. Provide immediate, actionable advice. Be concise and helpful."""
+                    user_content = f"🚨 URGENT: {prompt}\n\n(Provide emergency guidance immediately)"
+                elif context and context.strip():
+                    user_content = f"Question: {prompt}\n\nRelevant medical info:\n{context[:600]}"
                 else:
-                    user_content = f"""Medical Reference: {context}
+                    user_content = prompt
 
-User's Question: {prompt}
+                messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content}
+                ]
 
-Provide a helpful, informative response."""
-            else:
-                if is_urgent:
-                    user_content = f"""User's Concern: {prompt}
+                payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "top_p": 0.9,
+                    "stream": False
+                }
 
-This seems urgent. Provide immediate, actionable advice. Focus on what they should do right now."""
+                response = requests.post(
+                    self.api_url,
+                    headers=self.headers,
+                    json=payload,
+                    timeout=10  # Reduced to 10 seconds for faster model
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+
+                elif response.status_code == 429:
+                    # Rate limit exceeded - retry
+                    logger.warning(f"Groq rate limit exceeded, attempt {attempt + 1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return "⏱️ API rate limit reached. Please wait a moment and try again."
+
                 else:
-                    user_content = f"""User's Question: {prompt}
+                    logger.error(f"Groq API error: {response.status_code} - {response.text}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return self._fallback_response(prompt, context)
 
-Provide a helpful, informative response based on medical knowledge."""
+            except requests.exceptions.Timeout:
+                logger.error(f"Groq API request timed out, attempt {attempt + 1}/{max_retries}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                return "⏱️ **Request Timeout**\n\nThe AI service took too long to respond.\n\n**Quick tips:**\n\n- Try a shorter question\n- Ask about one topic at a time\n- Wait a moment and retry\n\n💡 For urgent medical help, call your doctor or 911."
 
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content}
-            ]
-
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": 0.9,
-                "stream": False
-            }
-
-            response = requests.post(
-                self.api_url,
-                headers=self.headers,
-                json=payload,
-                timeout=60  # Increased timeout for better reliability
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
-            elif response.status_code == 429:
-                # Rate limit exceeded
-                logger.warning("Groq rate limit exceeded, waiting...")
-                time.sleep(5)
-                return "Rate limit exceeded. Please try again in a moment."
-
-            else:
-                logger.error(f"Groq API error: {response.status_code} - {response.text}")
+            except Exception as e:
+                logger.error(f"Error with Groq API: {e}, attempt {attempt + 1}/{max_retries}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
                 return self._fallback_response(prompt, context)
 
-        except requests.exceptions.Timeout:
-            logger.error("Groq API request timed out")
-            return "The request timed out. Please try again."
-
-        except Exception as e:
-            logger.error(f"Error with Groq API: {e}")
-            return self._fallback_response(prompt, context)
+        # Should not reach here
+        return self._fallback_response(prompt, context)
 
     def _fallback_response(self, prompt: str, context: str) -> str:
         """Fallback response when Groq API fails"""
         if context:
-            return f"Based on available information: {context[:500]}...\n\nNote: Full AI response unavailable. Please consult a healthcare professional for detailed medical advice."
+            return f"**Based on Available Medical Information:**\n\n{context[:800]}\n\n---\n\n⚠️ **Note:** The AI service is currently unavailable. The information above is from our medical knowledge base.\n\n💡 **Recommendation:** Please consult a healthcare professional for personalized medical advice."
         else:
-            return "I apologize, but I'm unable to generate a detailed response at this moment. Please consult a healthcare professional for medical advice."
+            return "⚠️ **AI Service Temporarily Unavailable**\n\nI apologize for the inconvenience. The AI assistant is currently experiencing issues.\n\n**What you can do:**\n\n- Try asking your question again in a moment\n- Upload medical documents for context\n- Consult a healthcare professional for urgent medical advice\n\nThank you for your patience! 🏥"
 
     async def generate_response(
         self,
@@ -221,36 +299,41 @@ Provide a helpful, informative response based on medical knowledge."""
                     max_messages=6  # Last 3 exchanges
                 )
 
-            # Search for relevant documents
+            # Search for relevant documents - only for complex queries
             sources = []
             context = ""
 
-            try:
-                from app.db.pinecone import search_similar_documents
-                logger.info("Searching for relevant documents...")
+            # Skip document search for very simple queries to improve speed
+            simple_queries = ['hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay']
+            is_simple_query = request.message.lower().strip() in simple_queries or len(request.message.split()) <= 3
 
-                search_results = search_similar_documents(
-                    query=request.message,
-                    k=settings.retriever_k
-                )
+            if not is_simple_query:
+                try:
+                    from app.db.pinecone import search_similar_documents
+                    logger.info("Searching for relevant documents...")
 
-                if search_results:
-                    sources = [
-                        {
-                            "content": result["content"][:200],
-                            "metadata": result.get("metadata", {})
-                        }
-                        for result in search_results
-                    ]
-                    # Combine top results for context (use more for Groq)
-                    context = "\n\n".join([result["content"] for result in search_results[:3]])
-                    logger.info(f"Found {len(sources)} relevant documents")
-                else:
-                    logger.info("No relevant documents found")
+                    search_results = search_similar_documents(
+                        query=request.message,
+                        k=2  # Reduced from 3 to 2 for faster search
+                    )
 
-            except Exception as e:
-                logger.warning(f"Could not search documents: {e}")
-                context = ""
+                    if search_results:
+                        sources = [
+                            {
+                                "content": result["content"][:150],  # Reduced from 200
+                                "metadata": result.get("metadata", {})
+                            }
+                            for result in search_results
+                        ]
+                        # Combine top results for context - reduced to top 2
+                        context = "\n\n".join([result["content"][:400] for result in search_results[:2]])
+                        logger.info(f"Found {len(sources)} relevant documents")
+
+                except Exception as e:
+                    logger.warning(f"Could not search documents: {e}")
+                    context = ""
+            else:
+                logger.info("Skipping document search for simple query")
 
             # Generate response using Groq
             if not self.api_key:
