@@ -74,30 +74,6 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - API Docs: http://localhost:8000/api/v1/docs
 - ReDoc: http://localhost:8000/api/v1/redoc
 
-## 🐳 Docker Deployment
-
-### Using Docker Compose
-
-```bash
-# Build and run
-docker-compose up --build
-
-# Run in background
-docker-compose up -d
-
-# Stop services
-docker-compose down
-```
-
-### Using Docker
-
-```bash
-# Build image
-docker build -t medical-chatbot .
-
-# Run container
-docker run -p 8000:8000 --env-file .env medical-chatbot
-```
 
 ## 📚 API Documentation
 
@@ -166,61 +142,6 @@ Configuration is managed through environment variables and `app/core/config.py`:
 | `MAX_FILE_SIZE` | Max upload size | 10MB |
 | `RATE_LIMIT_PER_MINUTE` | API rate limit | 60 |
 
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=app tests/
-
-# Run specific test file
-pytest tests/test_api/test_chat.py
-```
-
-## 📦 Development
-
-### Code Quality
-
-```bash
-# Format code
-black app/ tests/
-
-# Lint code
-ruff check app/ tests/
-
-# Type checking
-mypy app/
-```
-
-### Pre-commit Hooks
-
-```bash
-# Install pre-commit
-pre-commit install
-
-# Run manually
-pre-commit run --all-files
-```
-
-## 🚀 Production Deployment
-
-### Environment Setup
-
-1. Use production environment variables
-2. Enable HTTPS/TLS
-3. Set `DEBUG=false`
-4. Configure proper CORS origins
-5. Use environment-specific logging
-
-### Scaling Considerations
-
-- Use multiple workers: `uvicorn app.main:app --workers 4`
-- Implement Redis caching for responses
-- Use PostgreSQL for conversation history
-- Set up load balancer for multiple instances
-- Implement rate limiting and API keys
 
 ### Monitoring
 
@@ -238,9 +159,6 @@ pre-commit run --all-files
 4. Run tests and linting
 5. Submit a pull request
 
-## 📄 License
-
-MIT License - see LICENSE file for details
 
 ## 🙏 Acknowledgments
 
@@ -250,11 +168,6 @@ MIT License - see LICENSE file for details
 - HuggingFace for model hosting
 - Mistral AI for the language model
 
-## 📞 Support
-
-For issues and questions:
-- GitHub Issues: [Create an issue](https://github.com/yourusername/medical-chatbot/issues)
-- Email: support@example.com
 
 ## 🔄 Migration from Flask
 
