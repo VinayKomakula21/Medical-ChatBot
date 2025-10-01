@@ -13,6 +13,7 @@ import json
 
 from app.core.config import settings
 from app.core.exceptions import LLMException, VectorStoreException
+from app.core.cache import cache
 from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
 from app.repositories.chat import chat_repository
 from app.repositories.document import document_repository
@@ -284,6 +285,20 @@ class GroqChatService:
         try:
             logger.info(f"Processing chat request with Groq: {request.message[:100]}...")
 
+            # Check cache for simple queries (non-conversation)
+            cache_key = None
+            if not request.conversation_id:
+                cache_key = f"chat:{request.message.lower().strip()}"
+                cached_response = cache.get(cache_key)
+                if cached_response:
+                    logger.info("Returning cached response")
+                    return ChatResponse(
+                        message=cached_response["message"],
+                        conversation_id=conversation_id,
+                        sources=cached_response.get("sources", []),
+                        processing_time=time.time() - start_time
+                    )
+
             # Store user message in conversation history
             await chat_repository.add_message(
                 conversation_id=conversation_id,
@@ -370,6 +385,13 @@ class GroqChatService:
                 response_text += "\n\n💡 **Note:** For personalized medical advice, please consult a healthcare professional."
 
             processing_time = time.time() - start_time
+
+            # Cache response for simple queries (non-conversation)
+            if cache_key:
+                cache.set(cache_key, {
+                    "message": response_text,
+                    "sources": sources
+                }, ttl=600)  # Cache for 10 minutes
 
             return ChatResponse(
                 response=response_text,

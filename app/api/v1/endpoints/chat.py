@@ -4,7 +4,9 @@ import logging
 from typing import Any, Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.exceptions import (
     ConversationNotFoundException,
@@ -18,8 +20,11 @@ from app.services.chat_groq import groq_chat_service as chat_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Initialize limiter
+limiter = Limiter(key_func=get_remote_address)
+
 @router.post("/message", response_model=ChatResponse)
-async def send_message(request: ChatRequest) -> ChatResponse:
+async def send_message(request: ChatRequest, req: Request) -> ChatResponse:
     try:
         if request.stream:
             # For streaming, client should use WebSocket endpoint
@@ -38,7 +43,7 @@ async def send_message(request: ChatRequest) -> ChatResponse:
         raise InternalServerException(str(e))
 
 @router.get("/history/{conversation_id}")
-async def get_conversation_history(conversation_id: str) -> List[Dict[str, Any]]:
+async def get_conversation_history(conversation_id: str, req: Request) -> List[Dict[str, Any]]:
     try:
         # Convert string to UUID
         conv_id = UUID(conversation_id)
@@ -53,7 +58,7 @@ async def get_conversation_history(conversation_id: str) -> List[Dict[str, Any]]
         raise InternalServerException(str(e))
 
 @router.delete("/history/{conversation_id}")
-async def clear_conversation(conversation_id: str) -> Dict[str, str]:
+async def clear_conversation(conversation_id: str, req: Request) -> Dict[str, str]:
     try:
         conv_id = UUID(conversation_id)
 

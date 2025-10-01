@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Header } from '@/components/layout/Header';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { DocumentUpload } from '@/components/upload/DocumentUpload';
@@ -52,39 +53,49 @@ function App() {
   };
 
   return (
-    <ThemeProvider attribute="class" defaultTheme={settings.theme} enableSystem>
-      <div className="flex flex-col h-screen bg-background">
-        <Header
-          onUploadClick={() => setUploadOpen(true)}
-          onSettingsClick={() => setSettingsOpen(true)}
-          onClearChat={handleClearChat}
-          wsConnected={wsConnected}
-        />
+    <ErrorBoundary>
+      <ThemeProvider attribute="class" defaultTheme={settings.theme} enableSystem>
+        <div className="flex flex-col h-screen bg-background">
+          <ErrorBoundary>
+            <Header
+              onUploadClick={() => setUploadOpen(true)}
+              onSettingsClick={() => setSettingsOpen(true)}
+              onClearChat={handleClearChat}
+              wsConnected={wsConnected}
+            />
+          </ErrorBoundary>
 
-        <main className="flex-1 overflow-hidden">
-          <ChatInterface
-            messages={messages}
-            loading={loading}
-            onSendMessage={handleSendMessage}
-            wsConnected={wsConnected}
-          />
-        </main>
+          <main className="flex-1 overflow-hidden">
+            <ErrorBoundary>
+              <ChatInterface
+                messages={messages}
+                loading={loading}
+                onSendMessage={handleSendMessage}
+                wsConnected={wsConnected}
+              />
+            </ErrorBoundary>
+          </main>
 
-        <DocumentUpload
-          open={uploadOpen}
-          onOpenChange={setUploadOpen}
-        />
+          <ErrorBoundary>
+            <DocumentUpload
+              open={uploadOpen}
+              onOpenChange={setUploadOpen}
+            />
+          </ErrorBoundary>
 
-        <SettingsPanel
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          settings={settings}
-          onSettingsChange={setSettings}
-        />
+          <ErrorBoundary>
+            <SettingsPanel
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              settings={settings}
+              onSettingsChange={setSettings}
+            />
+          </ErrorBoundary>
 
-        <Toaster richColors position="bottom-right" />
-      </div>
-    </ThemeProvider>
+          <Toaster richColors position="bottom-right" />
+        </div>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

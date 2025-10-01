@@ -2,7 +2,9 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, File, Form, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.exceptions import (
     DocumentNotFoundException,
@@ -22,8 +24,12 @@ from app.services.document import document_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Initialize limiter
+limiter = Limiter(key_func=get_remote_address)
+
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
+    req: Request,
     file: UploadFile = File(...),
     tags: Optional[str] = Form(None),
     custom_metadata: Optional[str] = Form(None)
@@ -55,6 +61,7 @@ async def upload_document(
 
 @router.get("/", response_model=DocumentListResponse)
 async def list_documents(
+    req: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100)
 ) -> DocumentListResponse:
@@ -70,7 +77,7 @@ async def list_documents(
         raise InternalServerException(str(e))
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
-async def delete_document(document_id: str) -> DocumentDeleteResponse:
+async def delete_document(req: Request, document_id: str) -> DocumentDeleteResponse:
     try:
         from uuid import UUID
         doc_id = UUID(document_id)
@@ -87,7 +94,7 @@ async def delete_document(document_id: str) -> DocumentDeleteResponse:
         raise InternalServerException(str(e))
 
 @router.post("/search")
-async def search_documents(request: DocumentSearchRequest) -> List[Dict[str, Any]]:
+async def search_documents(req: Request, request: DocumentSearchRequest) -> List[Dict[str, Any]]:
     try:
         results = await document_service.search_documents(
             query=request.query,
@@ -101,7 +108,7 @@ async def search_documents(request: DocumentSearchRequest) -> List[Dict[str, Any
         raise InternalServerException(str(e))
 
 @router.get("/{document_id}/metadata")
-async def get_document_metadata(document_id: str) -> Dict[str, Any]:
+async def get_document_metadata(req: Request, document_id: str) -> Dict[str, Any]:
     try:
         from uuid import UUID
         doc_id = UUID(document_id)
