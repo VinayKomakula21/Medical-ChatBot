@@ -16,6 +16,7 @@ from app.core.logging import setup_logging
 from app.core.exceptions import BaseAPIException
 from app.api.v1.api import api_router
 from app.db.pinecone import init_pinecone
+from app.db.database import init_db, close_db
 
 # Setup logging
 setup_logging()
@@ -28,6 +29,14 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(app: FastAPI):
     logger.info("Starting up Medical ChatBot API...")
 
+    # Initialize database
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        # Continue startup even if database fails
+
     # Initialize Pinecone
     try:
         init_pinecone()
@@ -39,6 +48,13 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down Medical ChatBot API...")
+
+    # Close database connections
+    try:
+        await close_db()
+        logger.info("Database connections closed")
+    except Exception as e:
+        logger.error(f"Error closing database: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
