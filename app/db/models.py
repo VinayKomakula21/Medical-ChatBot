@@ -54,7 +54,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # Nullable for anonymous users
     title = Column(String, nullable=True)  # Optional conversation title
 
     # Timestamps
@@ -103,7 +103,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
 
     # File information
     filename = Column(String, nullable=False)
@@ -112,6 +112,7 @@ class Document(Base):
     file_size = Column(Integer, nullable=False)  # Size in bytes
 
     # Processing information
+    status = Column(String, default="processing")  # processing, ready, failed
     chunks_count = Column(Integer, default=0)  # Number of text chunks created
     page_count = Column(Integer, nullable=True)  # For PDFs
 
@@ -131,4 +132,4 @@ class Document(Base):
     user = relationship("User", back_populates="documents")
 
     def __repr__(self):
-        return f"<Document(id={self.id}, filename={self.filename})>"
+        return f"<Document(id={self.id}, filename={self.filename}, status={self.status})>"

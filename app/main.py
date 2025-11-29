@@ -144,8 +144,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+# Mount static files (only if frontend directory exists)
+import os
+if os.path.exists("frontend"):
+    app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)

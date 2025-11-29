@@ -1,5 +1,6 @@
 """
 Document repository for managing document metadata and vectors.
+Uses SQLAlchemy for persistent storage.
 """
 import json
 from datetime import datetime
@@ -7,86 +8,115 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from sqlalchemy import select, delete, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
-from app.db.pinecone import get_index, add_documents, search_similar_documents
+from app.db.models import Document
+from app.db.pinecone import get_index, add_documents, search_similar_documents, delete_documents
 from app.repositories.base import BaseRepository
-from app.services.embeddings import hf_embeddings
 
 
 class DocumentRepository(BaseRepository):
     """
     Repository for managing documents and their vector embeddings.
-    Interfaces with Pinecone for vector storage.
+    Uses SQLAlchemy for persistent storage and interfaces with Pinecone for vectors.
     """
 
     def __init__(self):
         super().__init__()
-        # In-memory metadata storage
-        # TODO: Replace with database storage
-        self._documents: Dict[str, Dict[str, Any]] = {}
-        self._document_chunks: Dict[str, List[str]] = {}
 
-    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create(
+        self,
+        db: AsyncSession,
+        filename: str,
+        file_path: str,
+        file_type: str,
+        file_size: int,
+        user_id: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        custom_metadata: Optional[Dict[str, Any]] = None
+    ) -> Document:
         """Create a new document record."""
-        doc_id = data.get("id") or str(uuid4())
+        doc_id = str(uuid4())
 
-        document = {
-            "id": doc_id,
-            "filename": data["filename"],
-            "file_path": data.get("file_path"),
-            "content_type": data.get("content_type", "text/plain"),
-            "size": data.get("size", 0),
-            "chunks_count": data.get("chunks_count", 0),
-            "tags": data.get("tags", []),
-            "metadata": data.get("metadata", {}),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-            "indexed": False,
-            "index_status": "pending"
-        }
+        document = Document(
+            id=doc_id,
+            user_id=user_id,
+            filename=filename,
+            file_path=file_path,
+            file_type=file_type,
+            file_size=file_size,
+            status="processing",
+            tags=json.dumps(tags) if tags else None,
+            custom_metadata=json.dumps(custom_metadata) if custom_metadata else None
+        )
 
-        self._documents[doc_id] = document
+        db.add(document)
+        await db.flush()
+
         self.logger.info(f"Created document record: {doc_id}")
         return document
 
-    async def get(self, id: str) -> Optional[Dict[str, Any]]:
+    async def get(
+        self,
+        db: AsyncSession,
+        document_id: str
+    ) -> Optional[Document]:
         """Get document by ID."""
-        return self._documents.get(id)
+        result = await db.execute(
+            select(Document).where(Document.id == document_id)
+        )
+        return result.scalar_one_or_none()
 
-    async def update(self, id: str, data: Dict[str, Any]) -> bool:
+    async def update(
+        self,
+        db: AsyncSession,
+        document_id: str,
+        **kwargs
+    ) -> bool:
         """Update document metadata."""
-        if id not in self._documents:
+        document = await self.get(db, document_id)
+        if not document:
             return False
 
-        document = self._documents[id]
-        document.update(data)
-        document["updated_at"] = datetime.utcnow().isoformat()
+        # Update allowed fields
+        allowed_fields = [
+            'status', 'chunks_count', 'page_count', 'pinecone_ids',
+            'tags', 'custom_metadata', 'processing_time'
+        ]
 
-        self.logger.info(f"Updated document: {id}")
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                if field in ['tags', 'custom_metadata', 'pinecone_ids'] and not isinstance(value, str):
+                    value = json.dumps(value)
+                setattr(document, field, value)
+
+        document.updated_at = datetime.utcnow()
+        await db.flush()
+
+        self.logger.info(f"Updated document: {document_id}")
         return True
 
-    async def delete(self, id: str) -> bool:
-        """Delete document and its vectors."""
-        if id not in self._documents:
+    async def delete(
+        self,
+        db: AsyncSession,
+        document_id: str
+    ) -> bool:
+        """Delete document, its vectors from Pinecone, and file from disk."""
+        document = await self.get(db, document_id)
+        if not document:
             return False
 
-        # Delete from Pinecone if vectors exist
+        # Delete vectors from Pinecone using stored IDs
         try:
-            await self.delete_vectors(id)
+            await self.delete_vectors(document)
         except Exception as e:
-            self.logger.error(f"Failed to delete vectors for document {id}: {e}")
+            self.logger.error(f"Failed to delete vectors for document {document_id}: {e}")
 
-        # Delete document record
-        del self._documents[id]
-
-        # Delete chunks if any
-        if id in self._document_chunks:
-            del self._document_chunks[id]
-
-        # Delete file if exists
-        document = self._documents.get(id)
-        if document and document.get("file_path"):
-            file_path = Path(document["file_path"])
+        # Delete file from disk
+        if document.file_path:
+            file_path = Path(document.file_path)
             if file_path.exists():
                 try:
                     file_path.unlink()
@@ -94,180 +124,223 @@ class DocumentRepository(BaseRepository):
                 except Exception as e:
                     self.logger.error(f"Failed to delete file {file_path}: {e}")
 
-        self.logger.info(f"Deleted document: {id}")
+        # Delete document record
+        await db.delete(document)
+        await db.flush()
+
+        self.logger.info(f"Deleted document: {document_id}")
         return True
 
     async def list(
         self,
+        db: AsyncSession,
+        user_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
-        tags: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
-        """List documents with pagination and optional tag filtering."""
-        documents = list(self._documents.values())
+        tags: Optional[List[str]] = None,
+        status: Optional[str] = None
+    ) -> List[Document]:
+        """List documents with pagination and optional filtering."""
+        query = select(Document).order_by(Document.created_at.desc())
 
-        # Filter by tags if provided
+        if user_id:
+            query = query.where(Document.user_id == user_id)
+
+        if status:
+            query = query.where(Document.status == status)
+
+        # Tag filtering (documents with any of the provided tags)
         if tags:
-            documents = [
-                doc for doc in documents
-                if any(tag in doc.get("tags", []) for tag in tags)
-            ]
+            # Use JSON contains for tag filtering
+            tag_conditions = []
+            for tag in tags:
+                tag_conditions.append(Document.tags.contains(f'"{tag}"'))
+            if tag_conditions:
+                from sqlalchemy import or_
+                query = query.where(or_(*tag_conditions))
 
-        # Sort by created_at descending
-        documents.sort(key=lambda x: x["created_at"], reverse=True)
+        query = query.offset(skip).limit(limit)
+        result = await db.execute(query)
+        return list(result.scalars().all())
 
-        # Apply pagination
-        return documents[skip : skip + limit]
-
-    async def store_chunks(
+    async def count(
         self,
-        document_id: str,
-        chunks: List[str]
-    ) -> bool:
-        """Store document chunks in memory."""
-        self._document_chunks[document_id] = chunks
+        db: AsyncSession,
+        user_id: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> int:
+        """Count documents with optional filtering."""
+        query = select(func.count(Document.id))
 
-        # Update document record
-        if document_id in self._documents:
-            self._documents[document_id]["chunks_count"] = len(chunks)
-            self._documents[document_id]["updated_at"] = datetime.utcnow().isoformat()
+        if user_id:
+            query = query.where(Document.user_id == user_id)
 
-        self.logger.info(f"Stored {len(chunks)} chunks for document {document_id}")
-        return True
+        if status:
+            query = query.where(Document.status == status)
 
-    async def get_chunks(self, document_id: str) -> List[str]:
-        """Get chunks for a document."""
-        return self._document_chunks.get(document_id, [])
+        result = await db.execute(query)
+        return result.scalar() or 0
 
-    async def index_document(
+    async def update_status(
         self,
+        db: AsyncSession,
         document_id: str,
-        chunks: List[str],
-        metadata: Optional[Dict[str, Any]] = None
+        status: str,
+        error_message: Optional[str] = None
     ) -> bool:
-        """Index document chunks in Pinecone."""
-        try:
-            if not chunks:
-                self.logger.warning(f"No chunks to index for document {document_id}")
-                return False
-
-            # Prepare metadata for each chunk
-            chunk_metadata = metadata or {}
-            chunk_metadata["document_id"] = document_id
-
-            # Add chunks to vector store
-            chunk_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
-            metadatas = [chunk_metadata.copy() for _ in chunks]
-
-            # Store in Pinecone using the add_documents function
-            add_documents(
-                texts=chunks,
-                ids=chunk_ids,
-                metadatas=metadatas
-            )
-
-            # Update document status
-            await self.update(document_id, {
-                "indexed": True,
-                "index_status": "completed",
-                "indexed_at": datetime.utcnow().isoformat()
-            })
-
-            self.logger.info(f"Indexed {len(chunks)} chunks for document {document_id}")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Failed to index document {document_id}: {e}")
-            await self.update(document_id, {
-                "indexed": False,
-                "index_status": f"failed: {str(e)}"
-            })
+        """Update document processing status."""
+        document = await self.get(db, document_id)
+        if not document:
             return False
 
-    async def delete_vectors(self, document_id: str) -> bool:
-        """Delete document vectors from Pinecone."""
-        try:
-            index = get_index()
-            if not index:
-                return False
+        document.status = status
+        if error_message:
+            # Store error in custom_metadata
+            metadata = json.loads(document.custom_metadata or '{}')
+            metadata['error'] = error_message
+            document.custom_metadata = json.dumps(metadata)
 
-            # Delete all chunks for this document
-            # Pinecone doesn't support delete by metadata, so we need chunk IDs
-            chunks = await self.get_chunks(document_id)
-            if chunks:
-                chunk_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
-                index.delete(ids=chunk_ids)
-                self.logger.info(f"Deleted {len(chunk_ids)} vectors for document {document_id}")
+        document.updated_at = datetime.utcnow()
+        await db.flush()
+
+        self.logger.info(f"Updated document {document_id} status to {status}")
+        return True
+
+    async def store_pinecone_ids(
+        self,
+        db: AsyncSession,
+        document_id: str,
+        pinecone_ids: List[str],
+        chunks_count: int
+    ) -> bool:
+        """Store Pinecone vector IDs after successful indexing."""
+        document = await self.get(db, document_id)
+        if not document:
+            return False
+
+        document.pinecone_ids = json.dumps(pinecone_ids)
+        document.chunks_count = chunks_count
+        document.status = "ready"
+        document.updated_at = datetime.utcnow()
+
+        await db.flush()
+
+        self.logger.info(f"Stored {len(pinecone_ids)} Pinecone IDs for document {document_id}")
+        return True
+
+    async def delete_vectors(self, document: Document) -> bool:
+        """Delete document vectors from Pinecone using stored IDs."""
+        try:
+            if not document.pinecone_ids:
+                # Fallback: try to construct IDs from document_id and chunks_count
+                if document.chunks_count and document.chunks_count > 0:
+                    chunk_ids = [f"{document.id}_{i}" for i in range(document.chunks_count)]
+                else:
+                    self.logger.warning(f"No Pinecone IDs found for document {document.id}")
+                    return False
+            else:
+                # Use stored Pinecone IDs (proper way)
+                chunk_ids = json.loads(document.pinecone_ids)
+
+            if chunk_ids:
+                delete_documents(chunk_ids)
+                self.logger.info(f"Deleted {len(chunk_ids)} vectors for document {document.id}")
 
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to delete vectors for document {document_id}: {e}")
+            self.logger.error(f"Failed to delete vectors for document {document.id}: {e}")
             return False
 
     async def search_similar(
         self,
         query: str,
         top_k: int = 5,
-        filter_tags: Optional[List[str]] = None
+        filter_tags: Optional[List[str]] = None,
+        user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Search for similar documents using vector similarity."""
         try:
-            # Build filter if tags provided
-            filter_dict = None
+            # Build filter if tags or user_id provided
+            filter_dict = {}
             if filter_tags:
-                filter_dict = {"tags": {"$in": filter_tags}}
+                filter_dict["tags"] = {"$in": filter_tags}
+            if user_id:
+                filter_dict["user_id"] = user_id
 
             # Search using the pinecone search function
             results = search_similar_documents(
                 query=query,
                 k=top_k,
-                filter=filter_dict
+                filter=filter_dict if filter_dict else None
             )
 
-            # Format results
-            formatted_results = []
-            for result in results:
-                formatted_result = {
-                    "content": result.get("content", ""),
-                    "metadata": result.get("metadata", {}),
-                    "score": result.get("score", 0.0),
-                    "document_id": result.get("metadata", {}).get("document_id")
-                }
-
-                # Add document info if available
-                if formatted_result["document_id"] in self._documents:
-                    formatted_result["document"] = self._documents[formatted_result["document_id"]]
-
-                formatted_results.append(formatted_result)
-
-            return formatted_results
+            return results
 
         except Exception as e:
             self.logger.error(f"Failed to search similar documents: {e}")
             return []
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(
+        self,
+        db: AsyncSession,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Get document repository statistics."""
-        total_documents = len(self._documents)
-        indexed_documents = sum(1 for doc in self._documents.values() if doc.get("indexed"))
-        total_chunks = sum(len(chunks) for chunks in self._document_chunks.values())
+        query_base = select(Document)
+        if user_id:
+            query_base = query_base.where(Document.user_id == user_id)
+
+        # Get all documents for user
+        result = await db.execute(query_base)
+        documents = list(result.scalars().all())
+
+        total_documents = len(documents)
+        ready_documents = sum(1 for doc in documents if doc.status == "ready")
+        processing_documents = sum(1 for doc in documents if doc.status == "processing")
+        failed_documents = sum(1 for doc in documents if doc.status == "failed")
+        total_chunks = sum(doc.chunks_count or 0 for doc in documents)
 
         tags = set()
         total_size = 0
-        for doc in self._documents.values():
-            tags.update(doc.get("tags", []))
-            total_size += doc.get("size", 0)
+        for doc in documents:
+            if doc.tags:
+                try:
+                    doc_tags = json.loads(doc.tags)
+                    tags.update(doc_tags)
+                except json.JSONDecodeError:
+                    pass
+            total_size += doc.file_size or 0
 
         return {
             "total_documents": total_documents,
-            "indexed_documents": indexed_documents,
+            "ready_documents": ready_documents,
+            "processing_documents": processing_documents,
+            "failed_documents": failed_documents,
             "total_chunks": total_chunks,
             "unique_tags": len(tags),
             "total_size_bytes": total_size,
             "total_size_mb": round(total_size / (1024 * 1024), 2)
         }
 
+    def get_tags_list(self, document: Document) -> List[str]:
+        """Helper to get tags as a list from document."""
+        if document.tags:
+            try:
+                return json.loads(document.tags)
+            except json.JSONDecodeError:
+                return []
+        return []
 
-# Singleton instance
+    def get_pinecone_ids_list(self, document: Document) -> List[str]:
+        """Helper to get Pinecone IDs as a list from document."""
+        if document.pinecone_ids:
+            try:
+                return json.loads(document.pinecone_ids)
+            except json.JSONDecodeError:
+                return []
+        return []
+
+
+# Singleton instance - now requires db session to be passed to methods
 document_repository = DocumentRepository()

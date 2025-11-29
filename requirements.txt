@@ -29,6 +29,9 @@ Pillow==10.1.0
 # NLP
 nltk==3.8.1
 
+# RAG Improvements
+rank-bm25==0.2.2  # BM25 keyword search for hybrid retrieval
+
 # Environment and config
 python-dotenv==1.0.0
 
