@@ -77,7 +77,7 @@ class GoogleUserInfo(BaseModel):
     """
     id: str  # Google user ID
     email: EmailStr
-    verified_email: bool
+    verified_email: bool = True  # Default to True if not provided by Google
     name: Optional[str] = None
     given_name: Optional[str] = None
     family_name: Optional[str] = None
