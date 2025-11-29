@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import {
   Dialog,
@@ -11,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { apiService } from '@/services/api';
 import { toast } from 'sonner';
-import { Upload, FileText, X, CheckCircle } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, FolderOpen } from 'lucide-react';
 
 interface DocumentUploadProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface DocumentUploadProps {
 }
 
 export function DocumentUpload({ open, onOpenChange }: DocumentUploadProps) {
+  const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -157,20 +159,33 @@ export function DocumentUpload({ open, onOpenChange }: DocumentUploadProps) {
             </div>
           )}
 
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-between">
             <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={uploading}
+              variant="ghost"
+              onClick={() => {
+                onOpenChange(false);
+                navigate('/documents');
+              }}
+              className="text-slate-600 dark:text-slate-400"
             >
-              Cancel
+              <FolderOpen className="h-4 w-4 mr-2" />
+              View Documents
             </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-            >
-              {uploading ? 'Uploading...' : 'Upload'}
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={!selectedFile || uploading}
+              >
+                {uploading ? 'Uploading...' : 'Upload'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
