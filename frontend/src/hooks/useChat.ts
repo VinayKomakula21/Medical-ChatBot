@@ -133,12 +133,49 @@ export const useChat = () => {
     setConversationId(null);
   }, [conversationId]);
 
+  const loadConversation = useCallback(async (convId: string | null) => {
+    if (!convId) {
+      // Start new conversation
+      setMessages([]);
+      setConversationId(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const history = await apiService.getConversationHistory(convId);
+
+      const formattedMessages: ChatMessage[] = history.map((msg: any) => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        sources: msg.sources || undefined,
+      }));
+
+      setMessages(formattedMessages);
+      setConversationId(convId);
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+      setMessages([]);
+      setConversationId(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    setMessages([]);
+    setConversationId(null);
+  }, []);
+
   return {
     messages,
     loading,
     wsConnected,
     sendMessage,
     clearConversation,
+    loadConversation,
+    startNewChat,
     conversationId,
   };
 };

@@ -1,8 +1,7 @@
 import type { ChatMessage } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { User, FileText, Clock, CheckCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { User, FileText, Clock, CheckCheck, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -14,9 +13,6 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
-  const isUrgent = message.content.toLowerCase().includes('urgent') ||
-                   message.content.toLowerCase().includes('emergency') ||
-                   message.content.toLowerCase().includes('pain');
 
   return (
     <div className={cn(

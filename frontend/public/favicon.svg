@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="botGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Antennas -->
+  <rect x="9.5" y="1" width="2" height="5" rx="1" fill="url(#botGrad)"/>
+  <rect x="20.5" y="1" width="2" height="5" rx="1" fill="url(#botGrad)"/>
+
+  <!-- Head circle -->
+  <ellipse cx="16" cy="17.5" rx="13" ry="11.5" fill="url(#botGrad)"/>
+
+  <!-- Headphones -->
+  <ellipse cx="4" cy="17.5" rx="3" ry="4" fill="url(#botGrad)"/>
+  <ellipse cx="28" cy="17.5" rx="3" ry="4" fill="url(#botGrad)"/>
+
+  <!-- Face -->
+  <rect x="6" y="12" width="20" height="12" rx="6" fill="white"/>
+
+  <!-- Eyes -->
+  <path d="M10 16.5C10 16.5 11 15 12.5 15C14 15 15 16.5 15 16.5" stroke="url(#botGrad)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M17 16.5C17 16.5 18 15 19.5 15C21 15 22 16.5 22 16.5" stroke="url(#botGrad)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Smile -->
+  <path d="M12 20C12 20 14 22 16 22C18 22 20 20 20 20" stroke="url(#botGrad)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Chat tail -->
+  <path d="M6 22L3 27L8 24" fill="url(#botGrad)"/>
+</svg>

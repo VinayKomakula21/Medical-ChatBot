@@ -5,10 +5,21 @@ import {
   Moon,
   Sun,
   Trash2,
-  Sparkles
+  Sparkles,
+  LogOut,
+  User
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface HeaderProps {
   onUploadClick: () => void;
@@ -19,6 +30,14 @@ interface HeaderProps {
 
 export function Header({ onUploadClick, onSettingsClick, onClearChat, wsConnected }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+
+  const getInitials = (name: string | null, email: string) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    return email[0].toUpperCase();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm">
@@ -106,6 +125,49 @@ export function Header({ onUploadClick, onSettingsClick, onClearChat, wsConnecte
           >
             <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
           </Button>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 ml-1"
+              >
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                  <AvatarImage src={user?.avatar_url || undefined} alt={user?.name || 'User'} />
+                  <AvatarFallback className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-sm font-medium">
+                    {user ? getInitials(user.name, user.email) : <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="flex items-center gap-2 p-2">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={user?.avatar_url || undefined} alt={user?.name || 'User'} />
+                  <AvatarFallback className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                    {user ? getInitials(user.name, user.email) : <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {user?.name || 'User'}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[160px]">
+                    {user?.email}
+                  </span>
+                </div>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={logout}
+                className="text-red-600 dark:text-red-400 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

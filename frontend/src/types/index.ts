@@ -58,3 +58,28 @@ export interface UploadProgress {
   total: number;
   percentage: number;
 }
+
+// User types for authentication
+export interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count?: number;
+}

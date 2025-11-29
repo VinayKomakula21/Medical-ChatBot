@@ -59,14 +59,34 @@ class Settings(BaseSettings):
         env="UPLOAD_DIR"
     )
 
-    # Security settings (Optional - for future authentication implementation)
-    SECRET_KEY: Optional[str] = Field(
-        default=None,
+    # Database settings
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///./medical_chatbot.db",
+        env="DATABASE_URL"
+    )
+
+    # Security settings - JWT
+    SECRET_KEY: str = Field(
+        default="your-secret-key-change-in-production-min-32-chars",
         env="SECRET_KEY",
-        description="Secret key for JWT/session encryption (optional - for future use)"
+        description="Secret key for JWT token signing (MUST change in production!)"
     )
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440, env="ACCESS_TOKEN_EXPIRE_MINUTES")  # 24 hours
+
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI: str = Field(
+        default="http://localhost:8000/api/v1/auth/google/callback",
+        env="GOOGLE_REDIRECT_URI"
+    )
+
+    # Frontend URL for redirects after OAuth
+    FRONTEND_URL: str = Field(
+        default="http://localhost:3000",
+        env="FRONTEND_URL"
+    )
 
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")

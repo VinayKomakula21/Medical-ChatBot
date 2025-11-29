@@ -6,157 +6,72 @@ import logging
 import time
 import asyncio
 import os
+from functools import partial
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from uuid import UUID, uuid4
 import requests
 import json
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import LLMException, VectorStoreException
 from app.core.cache import cache
 from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
 from app.repositories.chat import chat_repository
-from app.repositories.document import document_repository
 
 logger = logging.getLogger(__name__)
 
-# Medical chatbot prompt template
-SYSTEM_PROMPT = """You are MediBot, a friendly medical assistant. Give simple, easy-to-understand health advice.
+# Medical chatbot prompt template - Optimized for RAG
+SYSTEM_PROMPT = """You are MediBot, a knowledgeable medical assistant. Answer health questions using the provided medical information.
 
-🎯 CORE RULES:
+## HOW TO USE PROVIDED INFORMATION
+When medical info is provided (marked [1], [2], etc.):
+- **Prioritize this information** - it's from uploaded medical documents
+- Cite sources naturally: "Symptoms include fever and fatigue [1]" or "According to [1], treatment involves..."
+- Combine multiple sources when relevant: "Both rest [1] and hydration [2] are recommended"
+- If info seems incomplete, supplement with general medical knowledge but note it
 
-1. **KEEP IT SHORT & SIMPLE**
-   - Short questions = Short answers (3-5 bullet points)
-   - Detailed questions = Detailed answers (but still clear)
-   - Use everyday language, not medical jargon
+When NO medical info is provided:
+- Use your general medical knowledge
+- Be clear this is general advice, not from their documents
 
-2. **SKIP THE FLUFF**
-   - No greetings ("I understand...", "I'm happy to help...")
-   - No long introductions
-   - Jump straight to the answer
+## RESPONSE STYLE
+- **Direct answers** - Skip greetings, get to the point
+- **Simple language** - "medicine" not "pharmaceutical", "shot" not "injection"
+- **Structured format** - Use headers and bullets for clarity
+- **Appropriate length** - Match response length to question complexity
 
-3. **BE CONVERSATIONAL**
-   - Write like you're talking to a friend
-   - Use simple words (say "sick" not "ill", "shot" not "injection")
-   - Keep sentences short and clear
+## FORMAT GUIDE
+```
+**[Topic Header]**
 
-📝 RESPONSE EXAMPLES:
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
 
-**Example 1 - Simple Question:**
-User: "Headache remedies"
-Good Response:
-**Quick Relief:**
+[Brief explanation if needed]
 
-- Drink 2 glasses of water
-- Rest in a dark, quiet room
-- Cold pack on forehead
-- Take ibuprofen or acetaminophen
-- Massage your temples gently
+**When to see a doctor:**
+- Warning sign 1
+- Warning sign 2
+```
 
-⚠️ See a doctor if pain is severe or lasts 3+ days.
+## EMERGENCY HANDLING
+For chest pain, difficulty breathing, severe bleeding, stroke symptoms:
+🚨 Start with "**URGENT - Seek immediate medical help**"
+Provide brief first-aid steps while waiting for help.
 
-**Example 1B - Fever:**
-User: "fever remedies"
-Good Response:
-**Fever Relief:**
+## CONVERSATION AWARENESS
+- Remember context from earlier in the conversation
+- If user asks follow-up ("what about side effects?"), connect to previous topic
+- Ask clarifying questions if the query is too vague to answer safely
 
-- Drink lots of fluids (water, clear broth)
-- Take acetaminophen (Tylenol) or ibuprofen (Advil)
-- Cool compress or cool bath
-- Rest in a cool room
-- Light clothing
-
-**See a doctor if:**
-- Fever over 104°F (40°C)
-- Lasts more than 3 days
-- Severe headache or confusion
-
-**Example 2 - Symptom Question:**
-User: "Symptoms of flu"
-Good Response:
-**Common Flu Symptoms:**
-
-- High fever (100-104°F)
-- Body aches and chills
-- Dry cough
-- Sore throat
-- Extreme tiredness
-- Headache
-- Stuffy or runny nose
-
-Most people feel better in 7-10 days. See a doctor if you have trouble breathing or chest pain.
-
-**Example 3 - Emergency:**
-User: "Chest pain and shortness of breath"
-Good Response:
-🚨 **THIS IS URGENT**
-
-Call 911 immediately if you have:
-- Chest pain or pressure
-- Trouble breathing
-- Pain spreading to arm, jaw, or back
-
-While waiting:
-- Sit down and stay calm
-- Loosen tight clothing
-- Don't drive yourself
-
-This could be a heart attack - get help NOW.
-
-**Example 4 - Explanation:**
-User: "What is diabetes?"
-Good Response:
-**Diabetes Explained Simply:**
-
-Diabetes means your blood sugar (glucose) is too high. Your body either:
-- Doesn't make enough insulin (Type 1)
-- Can't use insulin properly (Type 2)
-
-Think of insulin as a key that lets sugar into your cells for energy. Without it, sugar builds up in your blood.
-
-**Common Signs:**
-- Very thirsty and peeing a lot
-- Always tired
-- Blurry vision
-- Slow-healing cuts
-
-**Good News:** It's manageable with medicine, diet, and exercise. Talk to your doctor if you have these symptoms.
-
-🎨 FORMATTING RULES:
-
-✅ DO:
-- Use bullet points (-) - Keep each point SHORT (5-10 words max)
-- Bold section headers (**Like This:**)
-- Add line breaks before and after lists
-- Use simple, everyday words
-- Keep bullet points action-focused (start with verbs when possible)
-
-❌ DON'T:
-- Write long bullet points (no parentheses or extra explanations in bullets)
-- Use medical jargon (say "medicine" not "pharmaceutical", "shot" not "injection")
-- Write long paragraphs
-- Add unnecessary details
-- Mention "based on the context" or "documents"
-
-🎯 RESPONSE LENGTH GUIDE:
-
-| Question Type | Max Words | Example |
-|--------------|-----------|---------|
-| Simple remedy/tip | 80-120 | "Cold remedies" |
-| Symptoms list | 100-150 | "Flu symptoms" |
-| Explanation | 150-200 | "What is diabetes?" |
-| Emergency | 60-100 | "Chest pain help" |
-
-💡 REMEMBER:
-- You're helping regular people, not doctors
-- Simple = Better
-- If mom/grandma can understand it, it's good
-- Keep bullet points under 10 words each
-- Always end with "See a doctor if..." section (use bold header)
-
-CRITICAL: Shorter bullet points = easier to read = better user experience!
-
-Be helpful, be clear, be brief. That's it!"""
+## KEY PRINCIPLES
+1. Accuracy first - Don't guess about dosages or serious conditions
+2. Cite sources when using provided medical info
+3. Always include "see a doctor" guidance for anything beyond basic wellness
+4. Be empathetic but efficient - people want answers, not fluff"""
 
 class GroqChatService:
     """
@@ -189,7 +104,14 @@ class GroqChatService:
             time.sleep(self._min_request_interval - elapsed)
         self._last_request_time = time.time()
 
-    def _generate_with_groq(self, prompt: str, context: str, temperature: float = 0.5, max_tokens: int = 200) -> str:
+    def _generate_with_groq(
+        self,
+        prompt: str,
+        context: str,
+        conversation_history: str = "",
+        temperature: float = 0.5,
+        max_tokens: int = 200
+    ) -> str:
         """Generate response using Groq API with retry logic"""
         max_retries = 2
         retry_delay = 1
@@ -198,18 +120,28 @@ class GroqChatService:
             try:
                 self._wait_for_rate_limit()
 
-                # Format the messages for chat completion
                 # Analyze urgency of the question
                 urgent_keywords = ['chest pain', 'can\'t breathe', 'bleeding', 'emergency', 'severe pain', 'heart attack', 'stroke', 'choking']
                 is_urgent = any(keyword in prompt.lower() for keyword in urgent_keywords)
 
-                # Keep user content simple and direct
+                # Build user content with context
+                user_content_parts = []
+
+                # Add conversation history for follow-ups
+                if conversation_history and conversation_history.strip():
+                    user_content_parts.append(f"**Previous conversation:**\n{conversation_history}\n")
+
+                # Add retrieved medical documents
+                if context and context.strip():
+                    user_content_parts.append(f"**Retrieved medical information:**\n{context[:800]}\n")
+
+                # Add the current question
                 if is_urgent:
-                    user_content = f"🚨 URGENT: {prompt}\n\n(Provide emergency guidance immediately)"
-                elif context and context.strip():
-                    user_content = f"Question: {prompt}\n\nRelevant medical info:\n{context[:600]}"
+                    user_content_parts.append(f"🚨 **URGENT QUESTION:** {prompt}")
                 else:
-                    user_content = prompt
+                    user_content_parts.append(f"**Question:** {prompt}")
+
+                user_content = "\n".join(user_content_parts)
 
                 messages = [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -277,7 +209,8 @@ class GroqChatService:
 
     async def generate_response(
         self,
-        request: ChatRequest
+        request: ChatRequest,
+        db: AsyncSession
     ) -> ChatResponse:
         start_time = time.time()
         conversation_id = request.conversation_id or uuid4()
@@ -293,14 +226,15 @@ class GroqChatService:
                 if cached_response:
                     logger.info("Returning cached response")
                     return ChatResponse(
-                        message=cached_response["message"],
+                        response=cached_response["message"],
                         conversation_id=conversation_id,
                         sources=cached_response.get("sources", []),
                         processing_time=time.time() - start_time
                     )
 
-            # Store user message in conversation history
+            # Store user message in conversation history (now with db session)
             await chat_repository.add_message(
+                db=db,
                 conversation_id=conversation_id,
                 role="user",
                 content=request.message
@@ -310,6 +244,7 @@ class GroqChatService:
             conversation_context = ""
             if request.conversation_id:
                 conversation_context = await chat_repository.get_conversation_context(
+                    db=db,
                     conversation_id=conversation_id,
                     max_messages=6  # Last 3 exchanges
                 )
@@ -325,23 +260,51 @@ class GroqChatService:
             if not is_simple_query:
                 try:
                     from app.db.pinecone import search_similar_documents
+                    from app.services.query_processor import query_processor
+
                     logger.info("Searching for relevant documents...")
 
-                    search_results = search_similar_documents(
-                        query=request.message,
-                        k=2  # Reduced from 3 to 2 for faster search
-                    )
+                    # Check if query needs decomposition
+                    sub_queries = [request.message]
+                    if query_processor.is_complex_query(request.message):
+                        sub_queries = query_processor.decompose_query(request.message)
+                        logger.info(f"Decomposed into {len(sub_queries)} sub-queries")
 
-                    if search_results:
-                        sources = [
-                            {
-                                "content": result["content"][:150],  # Reduced from 200
-                                "metadata": result.get("metadata", {})
-                            }
-                            for result in search_results
-                        ]
-                        # Combine top results for context - reduced to top 2
-                        context = "\n\n".join([result["content"][:400] for result in search_results[:2]])
+                    # Search for each sub-query and merge results
+                    all_results = []
+                    seen_ids = set()
+
+                    for sub_query in sub_queries:
+                        search_results = search_similar_documents(
+                            query=sub_query,
+                            k=5
+                        )
+                        for result in search_results:
+                            result_id = result.get('id', result.get('content', '')[:50])
+                            if result_id not in seen_ids:
+                                all_results.append(result)
+                                seen_ids.add(result_id)
+
+                    # Take top 5 results
+                    all_results = all_results[:5]
+
+                    if all_results:
+                        # Build sources with citation markers
+                        sources = []
+                        context_parts = []
+
+                        for i, result in enumerate(all_results[:5]):
+                            ref = f"[{i+1}]"
+                            sources.append({
+                                "ref": ref,
+                                "content": result["content"][:200],
+                                "metadata": result.get("metadata", {}),
+                                "score": result.get("score", 0.0),
+                                "filename": result.get("metadata", {}).get("filename", "Unknown")
+                            })
+                            context_parts.append(f"{ref} {result['content'][:400]}")
+
+                        context = "\n\n".join(context_parts[:3])  # Use top 3 for context
                         logger.info(f"Found {len(sources)} relevant documents")
 
                 except Exception as e:
@@ -361,20 +324,25 @@ class GroqChatService:
 
                 logger.info("Generating response with Groq...")
 
-                # Run sync function in async context
+                # Run sync function in async context with conversation history
+                generate_fn = partial(
+                    self._generate_with_groq,
+                    prompt=request.message,
+                    context=context,
+                    conversation_history=conversation_context,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
                 response_text = await asyncio.get_event_loop().run_in_executor(
                     None,
-                    self._generate_with_groq,
-                    request.message,
-                    context,
-                    temperature,
-                    max_tokens
+                    generate_fn
                 )
 
                 logger.info("Response generated successfully")
 
-            # Store assistant's response in conversation history
+            # Store assistant's response in conversation history (now with db session)
             await chat_repository.add_message(
+                db=db,
                 conversation_id=conversation_id,
                 role="assistant",
                 content=response_text
@@ -411,14 +379,15 @@ class GroqChatService:
 
     async def generate_streaming_response(
         self,
-        request: ChatRequest
+        request: ChatRequest,
+        db: AsyncSession
     ) -> AsyncGenerator[StreamingChatResponse, None]:
         """Generate streaming response (simulated for now)"""
         conversation_id = request.conversation_id or uuid4()
 
         try:
             # Generate full response first
-            response = await self.generate_response(request)
+            response = await self.generate_response(request, db)
 
             # Simulate streaming
             chunk_size = 50  # Larger chunks for Groq responses
@@ -446,21 +415,30 @@ class GroqChatService:
                 sources=[]
             )
 
-    async def get_conversation_history(self, conversation_id: UUID) -> List[Dict[str, Any]]:
+    async def get_conversation_history(
+        self,
+        db: AsyncSession,
+        conversation_id: UUID
+    ) -> List[Dict[str, Any]]:
         """Get conversation history from repository."""
-        messages = await chat_repository.get_messages(conversation_id)
+        messages = await chat_repository.get_messages(db, conversation_id)
         return [
             {
                 "role": msg.role,
                 "content": msg.content,
-                "timestamp": msg.timestamp.isoformat()
+                "timestamp": msg.created_at.isoformat() if msg.created_at else ""
             }
             for msg in messages
         ]
 
-    async def clear_conversation(self, conversation_id: UUID) -> bool:
+    async def clear_conversation(
+        self,
+        db: AsyncSession,
+        conversation_id: UUID
+    ) -> bool:
         """Clear conversation history."""
-        return await chat_repository.clear_messages(conversation_id)
+        return await chat_repository.clear_messages(db, conversation_id)
+
 
 # Singleton instance
 groq_chat_service = GroqChatService()
