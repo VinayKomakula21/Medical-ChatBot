@@ -15,7 +15,10 @@ class WebSocketService {
         return;
       }
 
-      const wsUrl = 'ws://localhost:8000/api/v1/chat/ws';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const wsProtocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
+      const wsHost = apiUrl.replace(/^https?:\/\//, '');
+      const wsUrl = `${wsProtocol}://${wsHost}/api/v1/chat/ws`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
