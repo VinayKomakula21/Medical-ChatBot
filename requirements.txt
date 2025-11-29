@@ -5,7 +5,7 @@ python-multipart==0.0.6
 slowapi==0.1.9
 
 # Pydantic for validation
-pydantic==2.5.3
+pydantic[email]==2.5.3
 pydantic-settings==2.1.0
 
 # LangChain and AI
