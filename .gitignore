@@ -90,3 +90,6 @@ coverage.xml
 *.bak
 *.swp
 *~.nib
+
+# Portfolio (personal use only)
+PORTFOLIO.md
