@@ -20,10 +20,10 @@ class HFAPIEmbeddings:
     """
 
     def __init__(self):
-        # Using BAAI/bge-small-en-v1.5 which is confirmed working on HF Inference API
-        self.api_url = "https://api-inference.huggingface.co/models/BAAI/bge-small-en-v1.5"
+        # Using sentence-transformers/all-MiniLM-L6-v2 - reliable and available
+        self.api_url = f"https://api-inference.huggingface.co/models/{settings.EMBEDDING_MODEL}"
         self.headers = {"Authorization": f"Bearer {settings.HF_TOKEN}"}
-        self.dimension = 384  # bge-small-en-v1.5 output dimension
+        self.dimension = 384  # all-MiniLM-L6-v2 output dimension
         self._last_request_time = 0
         self._min_request_interval = 0.1  # Rate limiting: 100ms between requests
 
