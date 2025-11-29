@@ -143,7 +143,7 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
             {message.sources.map((source, index) => (
               <div key={index} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 shadow-sm flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
                 <FileText className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-                <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[120px] sm:max-w-none">{source.filename || source.document || `Source ${index + 1}`}</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[80px] sm:max-w-[120px] md:max-w-none">{source.filename || source.document || `Source ${index + 1}`}</span>
                 {source.score && (
                   <span className="text-slate-500 dark:text-slate-400 flex-shrink-0">
                     {(source.score * 100).toFixed(0)}%

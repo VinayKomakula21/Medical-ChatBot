@@ -40,7 +40,7 @@ export function MainHeader({ onNewChat, onSettingsClick }: MainHeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 bg-white dark:bg-slate-950">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 md:px-6 bg-white dark:bg-slate-950">
       {/* Left side - Model Selector */}
       <div className="flex items-center">
         <DropdownMenu>
