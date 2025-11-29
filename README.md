@@ -1,185 +1,195 @@
-# 🏥 Medical ChatBot - FastAPI Edition
+# MediBot - AI-Powered Medical Assistant
 
-A modern, production-ready medical chatbot built with FastAPI, LangChain, and Pinecone vector database. Features a clean REST API, WebSocket support for real-time chat, and a responsive web interface.
+A modern, full-stack medical chatbot powered by RAG (Retrieval-Augmented Generation) architecture. Features real-time AI chat, document analysis, Google OAuth authentication, and a beautiful responsive UI.
 
-## ✨ Features
+![MediBot](https://img.shields.io/badge/MediBot-AI%20Medical%20Assistant-7C3AED)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-009688)
+![React](https://img.shields.io/badge/React-19-61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB)
 
-- **🚀 FastAPI Backend**: High-performance async API with automatic documentation
-- **💬 Real-time Chat**: WebSocket support for streaming responses
-- **📄 Document Processing**: Upload and analyze medical PDFs, TXT, and DOCX files
-- **🔍 Semantic Search**: Pinecone vector database for intelligent document retrieval
-- **🤖 AI-Powered**: Mistral-7B model via HuggingFace for medical Q&A
-- **🎨 Modern UI**: Responsive web interface with dark mode support
-- **📊 API Documentation**: Auto-generated Swagger UI and ReDoc
-- **🐳 Docker Ready**: Full containerization with Docker Compose
-- **🔒 Type Safe**: Full Pydantic validation and type hints
-- **⚡ High Performance**: Async/await throughout with connection pooling
+## Features
 
-## 🏗️ Architecture
+- **AI-Powered Chat** - Intelligent responses using Groq LLM API with medical context
+- **Document Analysis** - Upload PDF, DOCX, TXT files for knowledge base enhancement
+- **Hybrid Search** - Combines semantic (vector) and keyword (BM25) search for accurate retrieval
+- **Google OAuth** - Secure authentication with JWT tokens
+- **Modern UI** - Responsive React frontend with dark mode support
+- **Real-time Updates** - Streaming responses and WebSocket support
+
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| **Backend** | FastAPI, Python 3.11, SQLAlchemy, Pydantic |
+| **AI/ML** | Groq API, HuggingFace Embeddings, LangChain |
+| **Database** | SQLite/PostgreSQL, Pinecone Vector DB |
+| **Auth** | Google OAuth 2.0, JWT |
+| **Deployment** | Render (Static Site + Web Service) |
+
+## Architecture
 
 ```
-medical-chatbot/
-├── app/                    # FastAPI application
-│   ├── api/               # API endpoints
-│   ├── core/              # Core configuration
-│   ├── models/            # Pydantic models
-│   ├── services/          # Business logic
-│   ├── db/                # Database connections
-│   └── utils/             # Utility functions
-├── frontend/              # Web interface
-├── tests/                 # Test suite
-└── docker/                # Docker configuration
+├── app/                    # FastAPI Backend
+│   ├── api/v1/            # API endpoints (auth, chat, documents)
+│   ├── core/              # Config, security, logging
+│   ├── services/          # Business logic (chat, embeddings, search)
+│   ├── repositories/      # Data access layer
+│   └── db/                # Database models and connections
+│
+├── frontend/              # React Frontend
+│   ├── src/
+│   │   ├── components/    # UI components (chat, layout, ui)
+│   │   ├── contexts/      # Auth context
+│   │   ├── pages/         # Route pages
+│   │   ├── services/      # API client
+│   │   └── hooks/         # Custom hooks
+│   └── public/            # Static assets
+│
+└── requirements.txt       # Python dependencies
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
-- Pinecone API key
-- HuggingFace API token
+- Python 3.11+
+- Node.js 18+
+- API Keys: Pinecone, Groq, HuggingFace, Google OAuth
 
-### Installation
+### Backend Setup
 
-1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/medical-chatbot.git
-cd medical-chatbot
-```
+# Clone repository
+git clone https://github.com/VinayKomakula21/Medical-ChatBot.git
+cd Medical-ChatBot
 
-2. **Set up environment variables**
-```bash
-cp .env.example .env
-# Edit .env with your API keys:
-# PINECONE_API_KEY=your_pinecone_key
-# HF_TOKEN=your_huggingface_token
-```
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-3. **Install dependencies**
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Set environment variables
+export PINECONE_API_KEY=your_key
+export GROQ_API_KEY=your_key
+export HF_TOKEN=your_token
+export GOOGLE_CLIENT_ID=your_client_id
+export GOOGLE_CLIENT_SECRET=your_secret
+export SECRET_KEY=your_jwt_secret
+
+# Run server
+uvicorn app.main:app --reload --port 8000
 ```
 
-4. **Run the application**
+### Frontend Setup
+
 ```bash
-# Option 1: Using uvicorn directly (recommended for development)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+cd frontend
 
-# Option 2: Using Python module
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Install dependencies
+npm install
+
+# Set environment variable
+export VITE_API_URL=http://localhost:8000
+
+# Run development server
+npm run dev
 ```
 
-5. **Access the application**
-- Web UI: http://localhost:8000
-- API Docs: http://localhost:8000/api/v1/docs
-- ReDoc: http://localhost:8000/api/v1/redoc
+### Access Application
 
+- **Frontend:** http://localhost:5173
+- **API Docs:** http://localhost:8000/api/v1/docs
+- **ReDoc:** http://localhost:8000/api/v1/redoc
 
-## 📚 API Documentation
+## API Endpoints
 
-### Chat Endpoints
-
-#### Send Message
+### Authentication
 ```http
-POST /api/v1/chat/message
-Content-Type: application/json
-
-{
-  "message": "What are the symptoms of diabetes?",
-  "temperature": 0.5,
-  "max_tokens": 512
-}
+GET  /api/v1/auth/google/login     # Initiate Google OAuth
+GET  /api/v1/auth/google/callback  # OAuth callback
+GET  /api/v1/auth/me               # Get current user
+POST /api/v1/auth/logout           # Logout
 ```
 
-#### WebSocket Chat (for streaming)
-```javascript
-ws://localhost:8000/api/v1/chat/ws
-```
-
-### Document Endpoints
-
-#### Upload Document
+### Chat
 ```http
-POST /api/v1/documents/upload
-Content-Type: multipart/form-data
-
-file: [PDF/TXT/DOCX file]
-tags: "medical,research"
+POST /api/v1/chat/message          # Send message
+GET  /api/v1/chat/history          # Get conversations
+GET  /api/v1/chat/history/{id}     # Get conversation messages
+DELETE /api/v1/chat/history/{id}   # Delete conversation
 ```
 
-#### List Documents
+### Documents
 ```http
-GET /api/v1/documents?page=1&page_size=20
+POST /api/v1/documents/upload      # Upload document
+GET  /api/v1/documents/            # List documents
+GET  /api/v1/documents/{id}        # Get document details
+DELETE /api/v1/documents/{id}      # Delete document
+POST /api/v1/documents/search      # Search documents
 ```
 
-#### Search Documents
-```http
-POST /api/v1/documents/search
-Content-Type: application/json
+## Environment Variables
 
-{
-  "query": "diabetes symptoms",
-  "top_k": 5
-}
-```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `PINECONE_API_KEY` | Pinecone vector DB API key | Yes |
+| `GROQ_API_KEY` | Groq LLM API key | Yes |
+| `HF_TOKEN` | HuggingFace API token | Yes |
+| `SECRET_KEY` | JWT signing secret | Yes |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Yes |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | Yes |
+| `DATABASE_URL` | Database connection string | No (defaults to SQLite) |
+| `BACKEND_CORS_ORIGINS` | Allowed CORS origins | No |
+| `FRONTEND_URL` | Frontend URL for OAuth redirect | No |
 
-### Health Check
-```http
-GET /api/v1/health
-```
+## Deployment
 
-## ⚙️ Configuration
+### Render Deployment
 
-Configuration is managed through environment variables and `app/core/config.py`:
+**Backend (Web Service):**
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PINECONE_API_KEY` | Pinecone API key | Required |
-| `HF_TOKEN` | HuggingFace token | Required |
-| `PINECONE_INDEX_NAME` | Pinecone index name | medicbot |
-| `HF_MODEL_ID` | HuggingFace model | mistralai/Mistral-7B-Instruct-v0.3 |
-| `CHUNK_SIZE` | Document chunk size | 500 |
-| `MAX_FILE_SIZE` | Max upload size | 10MB |
-| `RATE_LIMIT_PER_MINUTE` | API rate limit | 60 |
+**Frontend (Static Site):**
+- Root Directory: `frontend`
+- Build Command: `npm install && npm run build`
+- Publish Directory: `dist`
+- Add redirect rule: `/* → /index.html` (Rewrite)
 
+## Screenshots
 
-### Monitoring
+### Chat Interface
+- Modern chat UI with AI responses
+- Source citations from uploaded documents
+- Conversation history in sidebar
 
-- Health checks: `/api/v1/health`
-- Readiness: `/api/v1/health/ready`
-- Liveness: `/api/v1/health/live`
-- Metrics: Integrate Prometheus (optional)
-- Tracing: OpenTelemetry support (optional)
+### Document Management
+- Drag-and-drop file upload
+- Document list with metadata
+- Search across all documents
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
+## License
 
-## 🙏 Acknowledgments
+This project is for educational purposes. See [LICENSE](LICENSE) for details.
 
-- FastAPI for the amazing framework
-- LangChain for LLM orchestration
-- Pinecone for vector storage
-- HuggingFace for model hosting
-- Mistral AI for the language model
+## Disclaimer
 
-
-## 🔄 Migration from Flask
-
-This is a complete rewrite from Flask to FastAPI with:
-- ✅ 3-5x performance improvement
-- ✅ Type safety throughout
-- ✅ Auto-generated API documentation
-- ✅ WebSocket support
-- ✅ Better error handling
-- ✅ Cleaner architecture
-- ✅ Production-ready features
+This chatbot is for educational and informational purposes only. Always consult qualified medical professionals for medical advice, diagnosis, or treatment.
 
 ---
 
-**⚠️ Disclaimer**: This chatbot is for educational purposes only. Always consult qualified medical professionals for medical advice.
+**Built with** FastAPI, React, and Groq AI
+
+**Author:** Vinay Komakula - [@VinayKomakula21](https://github.com/VinayKomakula21)
