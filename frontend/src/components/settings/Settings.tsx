@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import type { Settings as SettingsType } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { UserProfile } from '@/components/profile/UserProfile';
 
 interface SettingsProps {
   open: boolean;
@@ -56,9 +57,10 @@ export function Settings({ open, onOpenChange, settings, onSettingsChange }: Set
         </DialogHeader>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="model">Model</TabsTrigger>
+            <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-4 mt-4">
@@ -112,6 +114,10 @@ export function Settings({ open, onOpenChange, settings, onSettingsChange }: Set
                 Maximum length of the response (50-2048)
               </p>
             </div>
+          </TabsContent>
+
+          <TabsContent value="account" className="mt-4">
+            <UserProfile />
           </TabsContent>
         </Tabs>
 

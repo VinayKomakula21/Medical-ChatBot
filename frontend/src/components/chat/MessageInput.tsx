@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Send, Loader2, Mic, Paperclip, Sparkles } from 'lucide-react';
+import { Send, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MessageInputProps {
@@ -11,12 +9,11 @@ interface MessageInputProps {
   loading: boolean;
   disabled?: boolean;
   wsConnected?: boolean;
+  isWelcomeScreen?: boolean;
 }
 
-export function MessageInput({ onSendMessage, loading, disabled, wsConnected }: MessageInputProps) {
+export function MessageInput({ onSendMessage, loading, disabled, wsConnected, isWelcomeScreen = false }: MessageInputProps) {
   const [message, setMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [charCount, setCharCount] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const maxChars = 2000;
 
@@ -25,7 +22,6 @@ export function MessageInput({ onSendMessage, loading, disabled, wsConnected }: 
     if (message.trim() && !loading && !disabled) {
       onSendMessage(message.trim());
       setMessage('');
-      setCharCount(0);
     }
   };
 
@@ -40,8 +36,6 @@ export function MessageInput({ onSendMessage, loading, disabled, wsConnected }: 
     const newMessage = e.target.value;
     if (newMessage.length <= maxChars) {
       setMessage(newMessage);
-      setCharCount(newMessage.length);
-      setIsTyping(newMessage.length > 0);
     }
   };
 
@@ -52,90 +46,93 @@ export function MessageInput({ onSendMessage, loading, disabled, wsConnected }: 
     }
   }, [message]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsTyping(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [message]);
-
-  // Suggested prompts for quick access
-  const suggestedPrompts = [
-    "Symptoms of flu",
-    "Headache remedies",
-    "First aid tips"
-  ];
-
-  const handleSuggestedPrompt = (prompt: string) => {
-    setMessage(prompt);
-    setCharCount(prompt.length);
-    textareaRef.current?.focus();
-  };
 
   return (
-    <div className="p-3 sm:p-4 space-y-2">
-      {/* Suggested prompts - show when input is empty */}
-      {message.length === 0 && !loading && (
-        <div className="flex gap-1.5 sm:gap-2 flex-wrap items-center">
-          {suggestedPrompts.map((prompt, index) => (
-            <button
-              key={index}
-              className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full transition-colors border border-slate-200 dark:border-slate-700"
-              onClick={() => handleSuggestedPrompt(prompt)}
+    <div className={cn(isWelcomeScreen ? "p-0" : "p-3 sm:p-4")}>
+      <form onSubmit={handleSubmit} className={cn(
+        "bg-white dark:bg-slate-800 border",
+        isWelcomeScreen
+          ? "rounded-2xl p-4 border-gray-200 dark:border-slate-700 shadow-lg shadow-gray-200/50 dark:shadow-slate-900/50"
+          : "rounded-2xl sm:rounded-3xl p-2 sm:p-3 shadow-lg border-gray-200 dark:border-slate-700"
+      )}>
+        {isWelcomeScreen ? (
+          /* Large input layout for welcome screen */
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-[#7C3AED] flex-shrink-0" />
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => {
+                if (e.target.value.length <= maxChars) {
+                  setMessage(e.target.value);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e as any);
+                }
+              }}
+              placeholder="Ask me anything about health, symptoms, medications..."
+              className="flex-1 bg-transparent border-0 outline-none text-[15px] text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500"
+              disabled={loading || disabled}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!message.trim() || loading}
+              className={cn(
+                "h-10 w-10 rounded-xl transition-all flex-shrink-0",
+                message.trim() && !loading
+                  ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-sm hover:shadow-md"
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500"
+              )}
             >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl shadow-md border border-slate-200 dark:border-slate-700 p-2 sm:p-3">
-        <div className="relative flex gap-2 sm:gap-3 items-end">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="hidden sm:flex h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0"
-            disabled={loading}
-            title="Attach file (coming soon)"
-          >
-            <Paperclip className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-          </Button>
-
-          <Textarea
-            ref={textareaRef}
-            value={message}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask, write or search for anything..."
-            className={cn(
-              "min-h-[36px] sm:min-h-[40px] max-h-[150px] sm:max-h-[200px] resize-none border-0 transition-all bg-transparent focus:ring-0 focus:outline-none px-0 text-sm",
-              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-              "text-slate-900 dark:text-slate-100",
-              charCount > maxChars * 0.9 && "text-orange-600 dark:text-orange-400"
-            )}
-            disabled={loading || disabled}
-            rows={1}
-          />
-
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!message.trim() || loading || disabled}
-            className={cn(
-              "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex-shrink-0 transition-all",
-              message.trim() && !loading
-                ? "bg-slate-900 dark:bg-purple-600 hover:bg-slate-800 dark:hover:bg-purple-700 text-white"
-                : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500"
-            )}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-            )}
-          </Button>
-        </div>
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        ) : (
+          /* Compact input layout for chat */
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-[#7C3AED] flex-shrink-0" />
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message..."
+              className={cn(
+                "flex-1 resize-none bg-transparent border-0 outline-none text-sm py-2",
+                "placeholder:text-gray-400 dark:placeholder:text-slate-500",
+                "text-gray-900 dark:text-slate-100",
+                "min-h-[40px] max-h-[150px]"
+              )}
+              disabled={loading || disabled}
+              rows={1}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!message.trim() || loading || disabled}
+              className={cn(
+                "h-9 w-9 sm:h-10 sm:w-10 rounded-full flex-shrink-0 transition-all",
+                message.trim() && !loading
+                  ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                  : "bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500"
+              )}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+            </Button>
+          </div>
+        )}
       </form>
 
       {/* Connection status - minimal, only when disconnected */}

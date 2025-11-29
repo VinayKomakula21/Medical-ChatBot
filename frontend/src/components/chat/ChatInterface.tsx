@@ -2,10 +2,12 @@ import { useRef, useEffect, useState } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import type { ChatMessage } from '@/types';
-import { Sparkles, Heart, Stethoscope, Activity, ArrowDown } from 'lucide-react';
+import { Sparkles, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { TypingAnimation } from '@/components/ui/typing-animation';
+import { BlurFade } from '@/components/ui/blur-fade';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -14,11 +16,26 @@ interface ChatInterfaceProps {
   wsConnected?: boolean;
 }
 
-export function ChatInterface({ messages, loading, onSendMessage, wsConnected }: ChatInterfaceProps) {
+export function ChatInterface({ messages, loading, onSendMessage }: ChatInterfaceProps) {
+  const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const getFirstName = () => {
+    if (user?.name) {
+      return user.name.split(' ')[0];
+    }
+    return 'there';
+  };
 
   const scrollToBottom = (smooth = true) => {
     if (messagesEndRef.current) {
@@ -52,18 +69,8 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
     }
   }, [messages, loading, userScrolledUp]);
 
-  const quickActions = [
-    { icon: Heart, label: "Common symptoms", query: "What are common symptoms of flu?" },
-    { icon: Stethoscope, label: "First aid", query: "Basic first aid for minor cuts" },
-    { icon: Activity, label: "Health tips", query: "Daily health tips for better lifestyle" }
-  ];
-
-  const handleQuickAction = (query: string) => {
-    onSendMessage(query);
-  };
-
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-100 via-purple-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950">
       {/* Connection Status Indicator - removed for cleaner look */}
 
       <div
@@ -73,43 +80,67 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
         onScroll={handleScroll}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px] text-center py-8 sm:py-16 space-y-6 sm:space-y-8 animate-fade-in px-4">
-            <div className="relative">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full gradient-purple-blue flex items-center justify-center shadow-lg">
-                <Sparkles className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-              </div>
-            </div>
-            <div className="space-y-2 sm:space-y-3">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">
-                Medical ChatBot
-              </h2>
-              <p className="text-slate-600 dark:text-slate-400 max-w-md text-sm sm:text-base leading-relaxed px-4">
-                Your AI-powered health assistant. Ask any medical question.
-              </p>
+          <div className="relative flex flex-col items-center justify-center h-full text-center py-8 sm:py-12 space-y-8 animate-fade-in px-4 overflow-hidden">
+            {/* Subtle gradient background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute top-[15%] left-1/2 -translate-x-1/2 w-[600px] h-[500px] bg-gradient-to-b from-violet-200/50 via-purple-100/40 to-transparent dark:from-violet-900/30 dark:via-purple-900/20 blur-3xl" />
+              <div className="absolute top-[10%] left-[40%] w-[400px] h-[400px] bg-gradient-to-br from-blue-100/40 to-transparent dark:from-blue-900/20 blur-3xl" />
             </div>
 
-            {/* Quick Action Pills */}
-            <div className="flex flex-wrap gap-2 sm:gap-3 justify-center max-w-full sm:max-w-2xl px-2">
-              {quickActions.map((action, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  onClick={() => handleQuickAction(action.query)}
-                  className="rounded-full px-3 py-3 sm:px-5 sm:py-5 text-xs sm:text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-slate-700 transition-all duration-200"
-                >
-                  <action.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-purple-600 dark:text-purple-400" />
-                  <span className="whitespace-nowrap dark:text-slate-200">{action.label}</span>
-                </Button>
-              ))}
+            {/* Personalized Greeting */}
+            <div className="space-y-3 relative z-10">
+              <BlurFade delay={0.1} inView>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-gray-900 dark:text-slate-100">
+                  <TypingAnimation
+                    text={`${getGreeting()}, ${getFirstName()}`}
+                    duration={50}
+                    className="text-gray-900 dark:text-slate-100"
+                  />
+                </h1>
+              </BlurFade>
+              <BlurFade delay={0.3} inView>
+                <p className="text-lg sm:text-xl text-gray-500 dark:text-slate-400">
+                  How Can I <span className="bg-gradient-to-r from-[#7C3AED] to-[#3B82F6] bg-clip-text text-transparent font-semibold">Assist You Today?</span>
+                </p>
+              </BlurFade>
             </div>
 
-            {/* Tips */}
-            <div className="flex flex-col items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-                <span className="text-purple-600 dark:text-purple-400">💡</span>
-                <span className="text-center dark:text-slate-300">Upload medical documents for personalized insights</span>
+            {/* Message Input */}
+            <BlurFade delay={0.5} inView>
+              <div className="w-full max-w-4xl relative z-10 px-4">
+                <MessageInput
+                  onSendMessage={onSendMessage}
+                  loading={loading}
+                  isWelcomeScreen={true}
+                />
               </div>
-            </div>
+            </BlurFade>
+
+            {/* Suggested Prompts */}
+            <BlurFade delay={0.7} inView>
+              <div className="relative z-10 w-full max-w-4xl px-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: '🩺', title: 'Common Symptoms', desc: 'Check symptoms and get advice' },
+                    { icon: '💊', title: 'Medication Info', desc: 'Learn about medications' },
+                    { icon: '🏥', title: 'First Aid Tips', desc: 'Emergency care guidance' },
+                    { icon: '🥗', title: 'Health & Wellness', desc: 'Nutrition and lifestyle tips' },
+                  ].map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onSendMessage(item.title)}
+                      className="flex items-start gap-3 p-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-slate-700/60 hover:border-[#7C3AED]/50 hover:shadow-md transition-all text-left group"
+                    >
+                      <span className="text-2xl">{item.icon}</span>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-slate-100 group-hover:text-[#7C3AED] transition-colors">{item.title}</p>
+                        <p className="text-sm text-gray-500 dark:text-slate-400">{item.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </BlurFade>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4 max-w-full px-2 sm:max-w-4xl sm:mx-auto pb-4">
@@ -130,21 +161,27 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
               </div>
             ))}
 
-            {/* Typing Indicator */}
+            {/* Typing Indicator - Enhanced */}
             {loading && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex gap-2 sm:gap-3 items-start">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full gradient-purple-blue flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <BlurFade delay={0} inView>
+                <div className="flex gap-2 sm:gap-3 items-start">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full gradient-purple-blue flex items-center justify-center flex-shrink-0 shadow-md animate-pulse">
+                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
-                  <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Analyzing data...</span>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1.5">
+                        <span className="w-2 h-2 bg-[#7C3AED] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-[#8B5CF6] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-[#3B82F6] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                        <TypingAnimation text="Analyzing your query..." duration={40} className="text-slate-500 dark:text-slate-400" />
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </BlurFade>
             )}
 
             <div ref={messagesEndRef} className="h-1" />
@@ -152,8 +189,8 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
         )}
       </div>
 
-      {/* Scroll to Bottom Button */}
-      {showScrollButton && (
+      {/* Scroll to Bottom Button - only show when there are messages and user scrolled up */}
+      {showScrollButton && messages.length > 0 && (
         <Button
           onClick={() => scrollToBottom()}
           size="icon"
@@ -163,12 +200,15 @@ export function ChatInterface({ messages, loading, onSendMessage, wsConnected }:
         </Button>
       )}
 
-      <div className="border-t bg-background/95 backdrop-blur">
-        <MessageInput
-          onSendMessage={onSendMessage}
-          loading={loading}
-        />
-      </div>
+      {/* Only show bottom input when there are messages */}
+      {messages.length > 0 && (
+        <div className="border-t bg-background/95 backdrop-blur">
+          <MessageInput
+            onSendMessage={onSendMessage}
+            loading={loading}
+          />
+        </div>
+      )}
     </div>
   );
 }
