@@ -47,7 +47,7 @@ class DocumentService:
     def _validate_file(self, file: UploadFile) -> None:
         # Check file extension
         file_ext = Path(file.filename).suffix.lower()
-        if file_ext not in settings.ALLOWED_EXTENSIONS:
+        if file_ext not in settings.allowed_extensions_list:
             raise InvalidFileFormatException(file_ext)
 
         # Check file size

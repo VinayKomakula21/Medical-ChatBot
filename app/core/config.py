@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, validator
 import os
@@ -47,10 +47,7 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = Field(default=500, env="CHUNK_SIZE")
     CHUNK_OVERLAP: int = Field(default=50, env="CHUNK_OVERLAP")
     MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
-    ALLOWED_EXTENSIONS: List[str] = Field(
-        default=[".pdf", ".txt", ".docx"],
-        env="ALLOWED_EXTENSIONS"
-    )
+    ALLOWED_EXTENSIONS: str = Field(default=".pdf,.txt,.docx")
 
     # Upload settings
     UPLOAD_DIR: Path = Field(
@@ -83,7 +80,7 @@ class Settings(BaseSettings):
 
     # Frontend URL for redirects after OAuth
     FRONTEND_URL: str = Field(
-        default="http://localhost:3000",
+        default="http://localhost:5173",
         env="FRONTEND_URL"
     )
 
@@ -119,5 +116,10 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         """Parse CORS origins from comma-separated string"""
         return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def allowed_extensions_list(self) -> list[str]:
+        """Parse allowed extensions from comma-separated string"""
+        return [ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()]
 
 settings = Settings()
