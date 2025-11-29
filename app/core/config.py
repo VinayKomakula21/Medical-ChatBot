@@ -15,10 +15,9 @@ class Settings(BaseSettings):
     WORKERS: int = Field(default=1, env="WORKERS")
     DEBUG: bool = Field(default=False, env="DEBUG")
 
-    # CORS settings
-    BACKEND_CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"],
-        env="BACKEND_CORS_ORIGINS"
+    # CORS settings - comma-separated string
+    BACKEND_CORS_ORIGINS: str = Field(
+        default="http://localhost:5173"
     )
 
     # Pinecone settings
@@ -98,12 +97,6 @@ class Settings(BaseSettings):
         env="LOG_FORMAT"
     )
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
-
     @validator("UPLOAD_DIR", pre=True)
     def create_upload_dir(cls, v):
         upload_path = Path(v)
@@ -121,5 +114,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return not self.DEBUG
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse CORS origins from comma-separated string"""
+        return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
 
 settings = Settings()
