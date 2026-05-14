@@ -94,11 +94,106 @@ class Settings(BaseSettings):
         env="LOG_FORMAT"
     )
 
+    # Agentic mode (Item #9) — LangGraph + Groq tool-calling + free NIH/FDA tools
+    AGENT_ENABLED: bool = Field(default=False, env="AGENT_ENABLED")
+    AGENT_MODEL: str = Field(
+        default="llama-3.3-70b-versatile", env="AGENT_MODEL",
+        description="Groq tool-calling model. 70B handles multi-tool plans far better than 8B.",
+    )
+    AGENT_MAX_ITERATIONS: int = Field(default=6, env="AGENT_MAX_ITERATIONS")
+    NCBI_API_KEY: Optional[str] = Field(
+        default=None, env="NCBI_API_KEY",
+        description="Free key from https://www.ncbi.nlm.nih.gov/account/ — raises PubMed rate limit 3→10 req/s",
+    )
+
+    # Safety / hallucination guard (Item #6) — all free
+    SAFETY_ENABLED: bool = Field(default=True, env="SAFETY_ENABLED")
+    SAFETY_MIN_FAITHFULNESS: float = Field(
+        default=0.6, env="SAFETY_MIN_FAITHFULNESS",
+        description="Below this score we annotate the response with a low-confidence banner.",
+    )
+    SAFETY_REQUIRE_MULTI_EVIDENCE: bool = Field(
+        default=False, env="SAFETY_REQUIRE_MULTI_EVIDENCE",
+        description="MEGA-RAG-style: require ≥2 retrieved chunks supporting a claim.",
+    )
+    SAFETY_VALIDATE_DRUG_NAMES: bool = Field(
+        default=True, env="SAFETY_VALIDATE_DRUG_NAMES",
+        description="Check drug names mentioned in answers against RxNorm.",
+    )
+
+    # Reranker (Item #4) — free-tier: Jina v3 has a 10M-lifetime-token free key
+    # grant per signup. RERANKER_PROVIDER=none keeps the project working with
+    # no key configured. "bge" path is OSS local-self-host (commercial-safe).
+    RERANKER_PROVIDER: str = Field(default="none", env="RERANKER_PROVIDER")
+    RERANKER_TOP_K: int = Field(default=5, env="RERANKER_TOP_K")
+    RERANKER_FETCH_K: int = Field(default=20, env="RERANKER_FETCH_K")
+    JINA_API_KEY: Optional[str] = Field(default=None, env="JINA_API_KEY")
+    JINA_RERANKER_MODEL: str = Field(
+        default="jina-reranker-v2-base-multilingual",
+        env="JINA_RERANKER_MODEL",
+        description="Jina rerank model id. Try 'jina-reranker-v3' for SOTA (token-pricier).",
+    )
+
+    # Observability (Langfuse) — free-tier
+    # Cloud Hobby: 50k observations/mo. Self-hosted: no caps.
+    # Off-by-default — set LANGFUSE_ENABLED=true plus the keys in .env to activate.
+    LANGFUSE_ENABLED: bool = Field(default=False, env="LANGFUSE_ENABLED")
+    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(default=None, env="LANGFUSE_PUBLIC_KEY")
+    LANGFUSE_SECRET_KEY: Optional[str] = Field(default=None, env="LANGFUSE_SECRET_KEY")
+    LANGFUSE_HOST: str = Field(
+        default="https://us.cloud.langfuse.com", env="LANGFUSE_HOST"
+    )
+
+    # Evaluation (RAGAS) — free-tier only
+    # RAGAS uses LLM-as-judge; we route it through Groq (free tier) instead of OpenAI.
+    # The judge LLM is intentionally larger than the production LLM
+    # (llama-3.1-8b-instant) so the judge can fairly grade the smaller model's output.
+    RAGAS_LLM_MODEL: str = Field(
+        default="llama-3.3-70b-versatile", env="RAGAS_LLM_MODEL"
+    )
+    # RAGAS embedding judge uses the same local model as production retrieval.
+    # Local = no API calls = free.
+    RAGAS_EMBEDDING_MODEL: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        env="RAGAS_EMBEDDING_MODEL",
+    )
+    EVAL_DATASET_PATH: str = Field(
+        default="eval/dataset/medical_qa_eval.jsonl", env="EVAL_DATASET_PATH"
+    )
+    EVAL_SMOKE_DATASET_PATH: str = Field(
+        default="eval/dataset/medical_qa_eval_smoke.jsonl",
+        env="EVAL_SMOKE_DATASET_PATH",
+    )
+    EVAL_RESULTS_DIR: str = Field(default="eval/results", env="EVAL_RESULTS_DIR")
+    EVAL_REPORTS_DIR: str = Field(default="eval/reports", env="EVAL_REPORTS_DIR")
+    EVAL_FAITHFULNESS_THRESHOLD: float = Field(
+        default=0.75, env="EVAL_FAITHFULNESS_THRESHOLD"
+    )
+    EVAL_CONTEXT_PRECISION_THRESHOLD: float = Field(
+        default=0.70, env="EVAL_CONTEXT_PRECISION_THRESHOLD"
+    )
+    EVAL_HIT_AT_5_THRESHOLD: float = Field(default=0.60, env="EVAL_HIT_AT_5_THRESHOLD")
+
     @validator("UPLOAD_DIR", pre=True)
     def create_upload_dir(cls, v):
         upload_path = Path(v)
         upload_path.mkdir(parents=True, exist_ok=True)
         return upload_path
+
+    @validator("SECRET_KEY")
+    def secret_key_must_be_overridden_in_production(cls, v, values):
+        """Refuse to boot in production with the placeholder JWT secret.
+
+        Dev/test stay convenient; prod fails loud instead of shipping a
+        guessable token-signing key.
+        """
+        placeholder = "your-secret-key-change-in-production-min-32-chars"
+        if not values.get("DEBUG", False) and v == placeholder:
+            raise ValueError(
+                "SECRET_KEY is still the default placeholder. "
+                "Set SECRET_KEY in .env (32+ random chars) before running with DEBUG=false."
+            )
+        return v
 
     class Config:
         env_file = ".env"

@@ -8,10 +8,11 @@ slowapi==0.1.9
 pydantic[email]==2.5.3
 pydantic-settings==2.1.0
 
-# LangChain and AI
-langchain==0.1.0
-langchain-community==0.0.10
-langchain-pinecone==0.0.1
+# LangChain and AI — bumped to 0.3.x to unblock LangGraph (Item #9) and RAGAS 0.2
+langchain>=0.3,<0.4
+langchain-community>=0.3,<0.4
+langchain-text-splitters>=0.3,<0.4
+langchain-pinecone>=0.2,<0.3
 
 # Vector store
 pinecone-client>=3.0.0
@@ -51,3 +52,26 @@ aiosqlite==0.19.0
 authlib==1.3.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+
+# Evaluation (RAGAS + pytest) — free-tier only
+# Uses Groq as LLM judge (free tier) and local sentence-transformers embeddings.
+# RAGAS 0.2.x requires langchain>=0.3 (bumped above).
+ragas>=0.2.10,<0.3
+langchain-groq>=0.2,<0.3
+langchain-huggingface>=0.1,<0.2
+
+# Agentic RAG (Item #9) — LangGraph agent with NIH/FDA tool calling.
+langgraph>=0.2,<0.3
+datasets>=3.2.0
+rapidfuzz>=3.10
+pytest>=8.3
+pytest-asyncio>=0.25
+
+# Observability — Langfuse Cloud Hobby (free: 50k events/mo) or self-host (MIT, no caps)
+langfuse>=2.50.0,<3.0.0
+
+# Embedding-model comparison (Item #3) — local in-process vector store, free
+# Used ONLY by eval/. Production retrieval stays on Pinecone.
+# chromadb 1.x is current (May 2026); accept anything >= 0.5 so we don't force
+# a downgrade on systems with the newer release already installed.
+chromadb>=0.5

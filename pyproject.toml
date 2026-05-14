@@ -1,0 +1,87 @@
+[project]
+name = "medical-chatbot"
+version = "1.0.0"
+description = "Medical RAG chatbot — FastAPI + Groq + Pinecone + hybrid retrieval + LangGraph (in progress)."
+requires-python = ">=3.11,<3.14"
+readme = "README.md"
+license = { text = "MIT" }
+
+# Source of truth for dependencies remains `requirements.txt` until the
+# langchain 0.3 bump (Item #7b in IMPROVEMENT_PLAN.md). Keeping a single
+# manifest avoids drift while we're between toolchains. After #7b we'll
+# move pins here and treat requirements.txt as a generated lock.
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "-m", "not slow",
+]
+markers = [
+    "slow: tests that hit live services (Pinecone, Groq). Run with `-m slow`.",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — single tool for lint + format. Replaces black/isort/flake8.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"  # syntax target — runtime supports 3.11–3.13
+extend-exclude = [
+    "frontend",
+    "uploads",
+    "eval/results",
+    "eval/reports",
+    "alembic/versions",
+]
+
+[tool.ruff.lint]
+# Enable a focused, low-noise set. Expand later.
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes (unused imports, undefined names)
+    "I",     # isort (import ordering)
+    "B",     # flake8-bugbear (likely bugs)
+    "UP",    # pyupgrade (modern Python idioms)
+    "W",     # pycodestyle warnings
+]
+ignore = [
+    "E501",  # line-too-long — let formatter handle, soft enforce
+    "B008",  # function-call-in-argument-default — FastAPI Depends() needs this
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/v1/endpoints/*.py" = ["B008"]   # FastAPI dependency-injection pattern
+"eval/**/*.py" = ["B007"]                # loop var unused is OK in eval scripts
+"tests/**/*.py" = ["B011"]               # assert False is OK in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# Mypy — gradual typing. Pinning strictness low so the suite passes today;
+# raise the bar after Item #7b's langchain bump.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_ignores = false
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+exclude = [
+    "^frontend/",
+    "^uploads/",
+    "^eval/results/",
+    "^alembic/versions/",
+]
+
+# Loosen rules in places that need iterative cleanup.
+[[tool.mypy.overrides]]
+module = ["eval.*", "tests.*"]
+ignore_errors = true

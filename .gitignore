@@ -80,6 +80,14 @@ nosetests.xml
 coverage.xml
 *.cover
 
+# Eval — keep code + smoke dataset, ignore per-run dumps
+eval/results/*
+!eval/results/.gitkeep
+eval/reports/*
+!eval/reports/.gitkeep
+# ChromaDB collections for embedding-comparison runs (Item #3) — regenerable
+eval/.chroma/
+
 # Database
 *.db
 *.sqlite
@@ -93,3 +101,4 @@ coverage.xml
 
 # Portfolio (personal use only)
 PORTFOLIO.md
+frontend/.env.example
