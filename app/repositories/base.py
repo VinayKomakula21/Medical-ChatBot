@@ -1,9 +1,10 @@
 """
 Base repository class with common functionality.
 """
+
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +19,17 @@ class BaseRepository(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod
-    async def create(self, data: Dict[str, Any]) -> Any:
+    async def create(self, data: dict[str, Any]) -> Any:
         """Create a new entity."""
         pass
 
     @abstractmethod
-    async def get(self, id: str) -> Optional[Any]:
+    async def get(self, id: str) -> Any | None:
         """Get entity by ID."""
         pass
 
     @abstractmethod
-    async def update(self, id: str, data: Dict[str, Any]) -> bool:
+    async def update(self, id: str, data: dict[str, Any]) -> bool:
         """Update entity by ID."""
         pass
 
@@ -38,7 +39,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    async def list(self, skip: int = 0, limit: int = 100) -> List[Any]:
+    async def list(self, skip: int = 0, limit: int = 100) -> list[Any]:
         """List entities with pagination."""
         pass
 

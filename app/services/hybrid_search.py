@@ -2,10 +2,11 @@
 Hybrid Search Service - Combines vector similarity with BM25 keyword search.
 Uses Reciprocal Rank Fusion (RRF) to merge results for better retrieval.
 """
+
 import logging
 import re
-from typing import List, Dict, Any, Optional, Tuple
 from collections import defaultdict
+from typing import Any
 
 from rank_bm25 import BM25Okapi
 
@@ -27,24 +28,24 @@ class HybridSearchService:
     """
 
     def __init__(self):
-        self.bm25_index: Optional[BM25Okapi] = None
-        self.documents: List[Dict[str, Any]] = []
-        self.document_texts: List[str] = []
+        self.bm25_index: BM25Okapi | None = None
+        self.documents: list[dict[str, Any]] = []
+        self.document_texts: list[str] = []
         self._rrf_k = 60  # RRF constant (default is 60)
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """
         Simple tokenization for BM25.
         Lowercase, remove punctuation, split on whitespace.
         """
         # Lowercase and remove special characters
         text = text.lower()
-        text = re.sub(r'[^\w\s]', ' ', text)
+        text = re.sub(r"[^\w\s]", " ", text)
         # Split and filter empty tokens
         tokens = [t.strip() for t in text.split() if t.strip()]
         return tokens
 
-    def build_index(self, documents: List[Dict[str, Any]]) -> None:
+    def build_index(self, documents: list[dict[str, Any]]) -> None:
         """
         Build BM25 index from document chunks.
 
@@ -56,7 +57,7 @@ class HybridSearchService:
             return
 
         self.documents = documents
-        self.document_texts = [doc.get('content', '') for doc in documents]
+        self.document_texts = [doc.get("content", "") for doc in documents]
 
         # Tokenize documents
         tokenized_docs = [self._tokenize(text) for text in self.document_texts]
@@ -66,12 +67,12 @@ class HybridSearchService:
 
         logger.info(f"Built BM25 index with {len(documents)} documents")
 
-    def add_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def add_documents(self, documents: list[dict[str, Any]]) -> None:
         """Add documents to existing index (rebuilds index)."""
         self.documents.extend(documents)
         self.build_index(self.documents)
 
-    def _bm25_search(self, query: str, top_k: int = 20) -> List[Tuple[int, float]]:
+    def _bm25_search(self, query: str, top_k: int = 20) -> list[tuple[int, float]]:
         """
         Search using BM25.
 
@@ -95,10 +96,10 @@ class HybridSearchService:
 
     def _reciprocal_rank_fusion(
         self,
-        vector_results: List[Dict[str, Any]],
-        bm25_results: List[Tuple[int, float]],
-        k: int = 60
-    ) -> List[Dict[str, Any]]:
+        vector_results: list[dict[str, Any]],
+        bm25_results: list[tuple[int, float]],
+        k: int = 60,
+    ) -> list[dict[str, Any]]:
         """
         Merge results using Reciprocal Rank Fusion.
 
@@ -112,12 +113,12 @@ class HybridSearchService:
         Returns:
             Merged results sorted by fused score
         """
-        fused_scores: Dict[str, float] = defaultdict(float)
-        result_map: Dict[str, Dict[str, Any]] = {}
+        fused_scores: dict[str, float] = defaultdict(float)
+        result_map: dict[str, dict[str, Any]] = {}
 
         # Add vector search results to fusion
         for rank, result in enumerate(vector_results):
-            doc_id = result.get('id', str(rank))
+            doc_id = result.get("id", str(rank))
             fused_scores[doc_id] += 1.0 / (k + rank + 1)
             result_map[doc_id] = result
 
@@ -125,33 +126,29 @@ class HybridSearchService:
         for rank, (doc_idx, bm25_score) in enumerate(bm25_results):
             if doc_idx < len(self.documents):
                 doc = self.documents[doc_idx]
-                doc_id = doc.get('id', f"bm25_{doc_idx}")
+                doc_id = doc.get("id", f"bm25_{doc_idx}")
 
                 fused_scores[doc_id] += 1.0 / (k + rank + 1)
 
                 # Add to result map if not already present
                 if doc_id not in result_map:
                     result_map[doc_id] = {
-                        'id': doc_id,
-                        'content': doc.get('content', ''),
-                        'metadata': doc.get('metadata', {}),
-                        'score': bm25_score,
-                        'source': 'bm25'
+                        "id": doc_id,
+                        "content": doc.get("content", ""),
+                        "metadata": doc.get("metadata", {}),
+                        "score": bm25_score,
+                        "source": "bm25",
                     }
 
         # Sort by fused score
-        sorted_results = sorted(
-            fused_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        sorted_results = sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)
 
         # Build final results
         final_results = []
         for doc_id, fused_score in sorted_results:
             if doc_id in result_map:
                 result = result_map[doc_id].copy()
-                result['fused_score'] = fused_score
+                result["fused_score"] = fused_score
                 final_results.append(result)
 
         return final_results
@@ -161,9 +158,9 @@ class HybridSearchService:
         query: str,
         top_k: int = 10,
         vector_weight: float = 0.5,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         trace: Any = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Perform hybrid search combining vector and BM25 results.
 
@@ -191,11 +188,7 @@ class HybridSearchService:
             vector_k = min(fetch_k, 50)
 
             try:
-                vector_results = search_similar_documents(
-                    query=query,
-                    k=vector_k,
-                    filter=filter
-                )
+                vector_results = search_similar_documents(query=query, k=vector_k, filter=filter)
             except Exception as e:
                 logger.warning(f"Vector search failed, falling back to BM25: {e}")
                 vector_results = []
@@ -203,7 +196,7 @@ class HybridSearchService:
             # Get BM25 results
             bm25_results = self._bm25_search(query, top_k=vector_k)
 
-            def _finalize(candidates: List[Dict[str, Any]], path: str) -> List[Dict[str, Any]]:
+            def _finalize(candidates: list[dict[str, Any]], path: str) -> list[dict[str, Any]]:
                 """Rerank (if configured) then slice to top_k. Records path on span."""
                 if wants_rerank and candidates:
                     with obs.span(
@@ -233,31 +226,33 @@ class HybridSearchService:
             # If no vector results, convert BM25 to standard format (reranked)
             if not vector_results:
                 logger.debug("No vector results, returning BM25 results only")
-                results: List[Dict[str, Any]] = []
+                results: list[dict[str, Any]] = []
                 for doc_idx, score in bm25_results[:vector_k]:
                     if doc_idx < len(self.documents):
                         doc = self.documents[doc_idx]
-                        results.append({
-                            'id': doc.get('id', f"bm25_{doc_idx}"),
-                            'content': doc.get('content', ''),
-                            'metadata': doc.get('metadata', {}),
-                            'score': score,
-                            'source': 'bm25'
-                        })
+                        results.append(
+                            {
+                                "id": doc.get("id", f"bm25_{doc_idx}"),
+                                "content": doc.get("content", ""),
+                                "metadata": doc.get("metadata", {}),
+                                "score": score,
+                                "source": "bm25",
+                            }
+                        )
                 return _finalize(results, path="bm25_only")
 
             # Merge using RRF, then rerank top fetch_k → top_k
             fused_results = self._reciprocal_rank_fusion(
-                vector_results,
-                bm25_results,
-                k=self._rrf_k
+                vector_results, bm25_results, k=self._rrf_k
             )
             try:
-                ret_span.update(metadata={
-                    "n_vector": len(vector_results),
-                    "n_bm25": len(bm25_results),
-                    "n_fused": len(fused_results),
-                })
+                ret_span.update(
+                    metadata={
+                        "n_vector": len(vector_results),
+                        "n_bm25": len(bm25_results),
+                        "n_fused": len(fused_results),
+                    }
+                )
             except Exception:  # noqa: BLE001
                 pass
             return _finalize(fused_results, path="hybrid_rrf")
@@ -267,8 +262,8 @@ class HybridSearchService:
         query: str,
         top_k: int = 10,
         expand_synonyms: bool = True,
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        filter: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Hybrid search with optional query expansion.
 
@@ -276,14 +271,14 @@ class HybridSearchService:
         """
         # Basic medical synonyms for query expansion
         medical_synonyms = {
-            'heart attack': ['myocardial infarction', 'cardiac arrest'],
-            'high blood pressure': ['hypertension'],
-            'sugar': ['glucose', 'diabetes'],
-            'flu': ['influenza'],
-            'cold': ['common cold', 'rhinitis'],
-            'headache': ['migraine', 'cephalgia'],
-            'stomach pain': ['abdominal pain', 'gastric pain'],
-            'fever': ['pyrexia', 'high temperature'],
+            "heart attack": ["myocardial infarction", "cardiac arrest"],
+            "high blood pressure": ["hypertension"],
+            "sugar": ["glucose", "diabetes"],
+            "flu": ["influenza"],
+            "cold": ["common cold", "rhinitis"],
+            "headache": ["migraine", "cephalgia"],
+            "stomach pain": ["abdominal pain", "gastric pain"],
+            "fever": ["pyrexia", "high temperature"],
         }
 
         expanded_query = query
@@ -298,12 +293,12 @@ class HybridSearchService:
 
         return self.search(expanded_query, top_k=top_k, filter=filter)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get index statistics."""
         return {
             "indexed_documents": len(self.documents),
             "has_bm25_index": self.bm25_index is not None,
-            "rrf_constant": self._rrf_k
+            "rrf_constant": self._rrf_k,
         }
 
 
@@ -312,10 +307,8 @@ hybrid_search_service = HybridSearchService()
 
 
 def hybrid_search(
-    query: str,
-    top_k: int = 10,
-    filter: Optional[Dict[str, Any]] = None
-) -> List[Dict[str, Any]]:
+    query: str, top_k: int = 10, filter: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """
     Convenience function for hybrid search.
 

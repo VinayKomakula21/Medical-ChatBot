@@ -4,6 +4,7 @@ Uses httpx.MockTransport to stub the NIH RxNav API responses. Each test
 constructs its own client (NOT the module singleton) so the mock transport
 swaps in cleanly and there's no cross-test state leak.
 """
+
 from __future__ import annotations
 
 import json

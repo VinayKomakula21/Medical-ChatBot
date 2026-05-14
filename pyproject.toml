@@ -51,6 +51,7 @@ select = [
 ignore = [
     "E501",  # line-too-long — let formatter handle, soft enforce
     "B008",  # function-call-in-argument-default — FastAPI Depends() needs this
+    "B904",  # raise-without-from inside except — FastAPI HTTPException pattern doesn't need chaining
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -4,6 +4,7 @@ Focuses on the deterministic internals: tokenizer + reciprocal-rank-fusion.
 Full search() integration is covered by the eval/runners, which need live
 Pinecone — out of scope here.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -61,9 +62,7 @@ class TestRRF:
         # Higher rank → higher fused score
         assert out[0]["fused_score"] > out[1]["fused_score"] > out[2]["fused_score"]
 
-    def test_doc_in_both_lists_outranks_either_alone(
-        self, svc: HybridSearchService
-    ) -> None:
+    def test_doc_in_both_lists_outranks_either_alone(self, svc: HybridSearchService) -> None:
         # Doc "shared" appears mid-pack in both lists. RRF should boost it
         # above any doc that appears in only one list.
         svc.documents = [{"id": "shared", "content": "x"}, {"id": "bm_only", "content": "y"}]

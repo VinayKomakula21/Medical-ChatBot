@@ -1,14 +1,22 @@
-import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, Depends, Query, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     ConversationNotFoundException,
@@ -16,12 +24,12 @@ from app.core.exceptions import (
     LLMException,
     ValidationException,
 )
+from app.core.security import get_current_user
 from app.db.database import get_db
-from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
-from app.services.chat_groq import groq_chat_service as chat_service
-from app.repositories.chat import chat_repository
-from app.core.security import get_optional_user, get_current_user
 from app.db.models import User
+from app.models.chat import ChatRequest, ChatResponse
+from app.repositories.chat import chat_repository
+from app.services.chat_groq import groq_chat_service as chat_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -29,19 +37,15 @@ router = APIRouter()
 # Initialize limiter
 limiter = Limiter(key_func=get_remote_address)
 
+
 @router.post("/message", response_model=ChatResponse)
 async def send_message(
-    request: ChatRequest,
-    req: Request,
-    response: Response,
-    db: AsyncSession = Depends(get_db)
+    request: ChatRequest, req: Request, response: Response, db: AsyncSession = Depends(get_db)
 ) -> ChatResponse:
     try:
         if request.stream:
             # For streaming, client should use WebSocket endpoint
-            raise ValidationException(
-                "For streaming responses, use the WebSocket endpoint at /ws"
-            )
+            raise ValidationException("For streaming responses, use the WebSocket endpoint at /ws")
 
         result = await chat_service.generate_response(request, db)
         if result.trace_id:
@@ -68,10 +72,13 @@ async def stream_message(
     the SSE spec. The stream ends with `data: [DONE]`. Clients can consume
     this with EventSource or fetch + ReadableStream.
     """
+
     async def event_stream():
         try:
             async for chunk in chat_service.generate_streaming_response(request, db):
-                payload = chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else chunk.dict()
+                payload = (
+                    chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else chunk.dict()
+                )
                 if payload.get("conversation_id") is not None:
                     payload["conversation_id"] = str(payload["conversation_id"])
                 yield f"data: {json.dumps(payload)}\n\n"
@@ -95,10 +102,8 @@ async def stream_message(
 
 @router.get("/history/{conversation_id}")
 async def get_conversation_history(
-    conversation_id: str,
-    req: Request,
-    db: AsyncSession = Depends(get_db)
-) -> List[Dict[str, Any]]:
+    conversation_id: str, req: Request, db: AsyncSession = Depends(get_db)
+) -> list[dict[str, Any]]:
     try:
         # Convert string to UUID
         conv_id = UUID(conversation_id)
@@ -112,12 +117,11 @@ async def get_conversation_history(
         logger.error(f"Error fetching conversation history: {e}")
         raise InternalServerException(str(e))
 
+
 @router.delete("/history/{conversation_id}")
 async def clear_conversation(
-    conversation_id: str,
-    req: Request,
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
+    conversation_id: str, req: Request, db: AsyncSession = Depends(get_db)
+) -> dict[str, str]:
     try:
         conv_id = UUID(conversation_id)
 
@@ -140,18 +144,15 @@ async def list_conversations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100)
-) -> List[Dict[str, Any]]:
+    limit: int = Query(50, ge=1, le=100),
+) -> list[dict[str, Any]]:
     """
     List all conversations for the authenticated user.
     Returns conversations sorted by most recently updated.
     """
     try:
         conversations = await chat_repository.list(
-            db,
-            user_id=current_user.id,
-            skip=skip,
-            limit=limit
+            db, user_id=current_user.id, skip=skip, limit=limit
         )
 
         result = []
@@ -159,13 +160,15 @@ async def list_conversations(
             # Get message count for each conversation
             message_count = await chat_repository.get_message_count(db, UUID(conv.id))
 
-            result.append({
-                "id": conv.id,
-                "title": conv.title or "New Conversation",
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
-                "message_count": message_count
-            })
+            result.append(
+                {
+                    "id": conv.id,
+                    "title": conv.title or "New Conversation",
+                    "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                    "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+                    "message_count": message_count,
+                }
+            )
 
         return result
 
@@ -180,11 +183,11 @@ async def update_conversation(
     req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    title: Optional[str] = None
-) -> Dict[str, Any]:
+    title: str | None = None,
+) -> dict[str, Any]:
     """Update conversation metadata (e.g., title)."""
     try:
-        conv_id = UUID(conversation_id)
+        UUID(conversation_id)  # validate format; raises ValueError if malformed
 
         # Verify conversation belongs to user
         conversation = await chat_repository.get(db, conversation_id)
@@ -212,7 +215,7 @@ async def update_conversation(
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -229,7 +232,9 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+
 manager = ConnectionManager()
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -254,26 +259,35 @@ async def websocket_endpoint(websocket: WebSocket):
                         async for chunk in chat_service.generate_streaming_response(request, db):
                             response_data = chunk.dict()
                             # Convert UUID to string
-                            if 'conversation_id' in response_data and response_data['conversation_id']:
-                                response_data['conversation_id'] = str(response_data['conversation_id'])
+                            if (
+                                "conversation_id" in response_data
+                                and response_data["conversation_id"]
+                            ):
+                                response_data["conversation_id"] = str(
+                                    response_data["conversation_id"]
+                                )
                             await websocket.send_json(response_data)
                     else:
                         # Send complete response
                         response = await chat_service.generate_response(request, db)
                         response_data = response.dict()
                         # Convert UUID to string
-                        if 'conversation_id' in response_data and response_data['conversation_id']:
-                            response_data['conversation_id'] = str(response_data['conversation_id'])
+                        if "conversation_id" in response_data and response_data["conversation_id"]:
+                            response_data["conversation_id"] = str(response_data["conversation_id"])
                         await websocket.send_json(response_data)
 
                     await db.commit()
                 except Exception as e:
                     await db.rollback()
                     logger.error(f"Error processing WebSocket message: {e}")
-                    await websocket.send_json({
-                        "error": str(e),
-                        "conversation_id": str(request.conversation_id) if request.conversation_id else None
-                    })
+                    await websocket.send_json(
+                        {
+                            "error": str(e),
+                            "conversation_id": str(request.conversation_id)
+                            if request.conversation_id
+                            else None,
+                        }
+                    )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -283,5 +297,5 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
         try:
             await websocket.close(code=1000)
-        except:
+        except Exception:  # noqa: BLE001 -- close is best-effort; ignore any teardown error
             pass

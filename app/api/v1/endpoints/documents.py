@@ -1,11 +1,21 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     DocumentNotFoundException,
@@ -35,10 +45,10 @@ async def upload_document(
     req: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    tags: Optional[str] = Form(None),
-    custom_metadata: Optional[str] = Form(None),
+    tags: str | None = Form(None),
+    custom_metadata: str | None = Form(None),
     async_processing: bool = Form(True),  # Enable background processing by default
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
     """
     Upload a document for processing.
@@ -64,7 +74,7 @@ async def upload_document(
             background_tasks=background_tasks if async_processing else None,
             tags=tag_list,
             custom_metadata=metadata_dict,
-            user_id=None  # TODO: Get from current_user when auth is required
+            user_id=None,  # TODO: Get from current_user when auth is required
         )
         return response
 
@@ -82,7 +92,7 @@ async def list_documents(
     req: Request,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> DocumentListResponse:
     """List all uploaded documents with pagination."""
     try:
@@ -90,7 +100,7 @@ async def list_documents(
             db=db,
             page=page,
             page_size=page_size,
-            user_id=None  # TODO: Get from current_user when auth is required
+            user_id=None,  # TODO: Get from current_user when auth is required
         )
         return DocumentListResponse(**result)
 
@@ -101,10 +111,8 @@ async def list_documents(
 
 @router.get("/{document_id}/status")
 async def get_document_status(
-    req: Request,
-    document_id: str,
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+    req: Request, document_id: str, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
     """
     Get document processing status.
 
@@ -115,6 +123,7 @@ async def get_document_status(
     """
     try:
         from uuid import UUID
+
         # Validate UUID format
         UUID(document_id)
 
@@ -132,13 +141,12 @@ async def get_document_status(
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
 async def delete_document(
-    req: Request,
-    document_id: str,
-    db: AsyncSession = Depends(get_db)
+    req: Request, document_id: str, db: AsyncSession = Depends(get_db)
 ) -> DocumentDeleteResponse:
     """Delete a document and its vectors from the database."""
     try:
         from uuid import UUID
+
         doc_id = UUID(document_id)
 
         response = await document_service.delete_document(db, doc_id)
@@ -155,17 +163,15 @@ async def delete_document(
 
 @router.post("/search")
 async def search_documents(
-    req: Request,
-    request: DocumentSearchRequest,
-    db: AsyncSession = Depends(get_db)
-) -> List[Dict[str, Any]]:
+    req: Request, request: DocumentSearchRequest, db: AsyncSession = Depends(get_db)
+) -> list[dict[str, Any]]:
     """Search documents using vector similarity."""
     try:
         results = await document_service.search_documents(
             query=request.query,
             top_k=request.top_k,
             filter_tags=request.filter_tags,
-            user_id=None  # TODO: Get from current_user when auth is required
+            user_id=None,  # TODO: Get from current_user when auth is required
         )
         return results
 
@@ -176,13 +182,12 @@ async def search_documents(
 
 @router.get("/{document_id}/metadata")
 async def get_document_metadata(
-    req: Request,
-    document_id: str,
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+    req: Request, document_id: str, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
     """Get detailed metadata for a document."""
     try:
         from uuid import UUID
+
         from app.repositories.document import document_repository
 
         # Validate UUID format
@@ -221,8 +226,8 @@ async def get_document_metadata(
                 "created_at": document.created_at.isoformat() if document.created_at else None,
                 "updated_at": document.updated_at.isoformat() if document.updated_at else None,
                 "tags": tags,
-                "custom_metadata": custom_metadata
-            }
+                "custom_metadata": custom_metadata,
+            },
         }
 
     except ValueError:

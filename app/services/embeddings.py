@@ -9,12 +9,12 @@ in-process. Free, fast, more reliable.
 Singleton `hf_embeddings` + method signatures preserved so call sites
 (app/db/pinecone.py, app/services/document.py) don't change.
 """
+
 from __future__ import annotations
 
 import logging
 import threading
 from functools import lru_cache
-from typing import List
 
 import numpy as np
 
@@ -47,6 +47,7 @@ class _LocalEmbeddings:
                     # Local import keeps cold-start fast for code paths that
                     # never embed (e.g. the agentic endpoint).
                     from sentence_transformers import SentenceTransformer
+
                     logger.info("Loading sentence-transformers model: %s", settings.EMBEDDING_MODEL)
                     self._model = SentenceTransformer(settings.EMBEDDING_MODEL)
                     # Update dimension from the actual model in case it's not MiniLM.
@@ -54,7 +55,7 @@ class _LocalEmbeddings:
                     logger.info("Embeddings ready (dim=%d)", self._dimension)
         return self._model
 
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         try:
@@ -71,11 +72,11 @@ class _LocalEmbeddings:
             logger.error("embed_texts failed: %s", exc)
             return [[0.0] * self._dimension for _ in texts]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self._embed_single_cached(text)
 
-    @lru_cache(maxsize=128)
-    def _embed_single_cached(self, text: str) -> List[float]:
+    @lru_cache(maxsize=128)  # noqa: B019 -- singleton service; bounded cache size, controlled lifetime
+    def _embed_single_cached(self, text: str) -> list[float]:
         try:
             model = self._get_model()
             vec = model.encode(

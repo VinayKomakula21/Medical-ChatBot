@@ -19,10 +19,11 @@ Why LangGraph (not raw function-calling loop):
 Free-tier everything: Groq tool-use, LangGraph (MIT), all 4 tools target
 free NIH/FDA endpoints.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import settings
 
@@ -63,7 +64,7 @@ def _build_graph() -> Any:
 
     try:
         from langchain_groq import ChatGroq
-        from langgraph.graph import END, START, MessagesState, StateGraph
+        from langgraph.graph import START, MessagesState, StateGraph
         from langgraph.prebuilt import ToolNode, tools_condition
     except ImportError as exc:
         raise SystemExit(
@@ -89,6 +90,7 @@ def _build_graph() -> Any:
         messages = state["messages"]
         if not messages or messages[0].type != "system":
             from langchain_core.messages import SystemMessage
+
             messages = [SystemMessage(content=_AGENT_SYSTEM_PROMPT)] + list(messages)
         response = llm_with_tools.invoke(messages)
         return {"messages": [response]}
@@ -108,7 +110,7 @@ def _build_graph() -> Any:
     return _compiled_graph
 
 
-async def run_agent(user_message: str, trace: Optional[Any] = None) -> dict:
+async def run_agent(user_message: str, trace: Any | None = None) -> dict:
     """Invoke the agent once. Returns {'answer': str, 'tool_calls': [...], 'iterations': int}.
 
     Hard cap of settings.AGENT_MAX_ITERATIONS by setting `recursion_limit` on
@@ -148,10 +150,12 @@ async def run_agent(user_message: str, trace: Optional[Any] = None) -> dict:
     tool_calls: list = []
     for m in messages:
         for tc in getattr(m, "tool_calls", None) or []:
-            tool_calls.append({
-                "name": tc.get("name") if isinstance(tc, dict) else tc.name,
-                "args": tc.get("args") if isinstance(tc, dict) else tc.args,
-            })
+            tool_calls.append(
+                {
+                    "name": tc.get("name") if isinstance(tc, dict) else tc.name,
+                    "args": tc.get("args") if isinstance(tc, dict) else tc.args,
+                }
+            )
 
     return {
         "answer": answer,

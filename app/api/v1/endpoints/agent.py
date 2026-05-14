@@ -4,11 +4,12 @@ Keeps the existing /chat/message non-agentic path intact. Both endpoints can
 be exercised from the frontend for A/B comparison (and for the eval suite to
 measure agent-vs-RAG on the same dataset).
 """
+
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
@@ -25,15 +26,15 @@ router = APIRouter()
 
 class AgentChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
-    conversation_id: Optional[str] = None  # accepted but unused in v1
+    conversation_id: str | None = None  # accepted but unused in v1
 
 
 class AgentChatResponse(BaseModel):
     response: str
-    tool_calls: List[Dict[str, Any]] = Field(default_factory=list)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     iterations: int = 0
-    trace_id: Optional[str] = None
-    processing_time: Optional[float] = None
+    trace_id: str | None = None
+    processing_time: float | None = None
 
 
 @router.post("/chat", response_model=AgentChatResponse)
@@ -59,7 +60,7 @@ async def agent_chat(
         raise InternalServerException("GROQ_API_KEY not configured.")
 
     start = time.time()
-    trace_id_str: Optional[str] = None
+    trace_id_str: str | None = None
     with obs.trace(
         name="agent.chat",
         metadata={"message_preview": request.message[:120]},
@@ -81,11 +82,13 @@ async def agent_chat(
             raise InternalServerException(f"Agent failed: {exc}") from exc
 
         try:
-            trace.update(output={
-                "answer_length": len(result.get("answer", "")),
-                "n_tool_calls": len(result.get("tool_calls") or []),
-                "iterations": result.get("iterations"),
-            })
+            trace.update(
+                output={
+                    "answer_length": len(result.get("answer", "")),
+                    "n_tool_calls": len(result.get("tool_calls") or []),
+                    "iterations": result.get("iterations"),
+                }
+            )
         except Exception:  # noqa: BLE001
             pass
 

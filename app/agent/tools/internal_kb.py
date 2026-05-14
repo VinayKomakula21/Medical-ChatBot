@@ -5,10 +5,10 @@ medical documents rather than general literature (PubMed) or specific drug
 labels (OpenFDA). It's the same search HybridSearchService runs in the
 non-agentic chat path — including the reranker if one is configured.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import List
 
 from langchain_core.tools import tool
 
@@ -36,7 +36,7 @@ def search_internal_kb(query: str, top_k: int = 5) -> str:
     if not results:
         return f"No matches in the user's uploaded documents for: {query}"
 
-    lines: List[str] = []
+    lines: list[str] = []
     for i, r in enumerate(results, start=1):
         filename = (r.get("metadata") or {}).get("filename", "doc")
         content = (r.get("content") or "")[:300].replace("\n", " ").strip()

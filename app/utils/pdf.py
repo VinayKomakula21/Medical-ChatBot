@@ -1,15 +1,17 @@
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
+
 import PyPDF2
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+
 def extract_text_from_pdf(file_path: Path) -> str:
     text = ""
     try:
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             pdf_reader = PyPDF2.PdfReader(file)
             num_pages = len(pdf_reader.pages)
 
@@ -22,56 +24,57 @@ def extract_text_from_pdf(file_path: Path) -> str:
         logger.error(f"Error extracting text from PDF {file_path}: {e}")
         raise
 
-def get_pdf_metadata(file_path: Path) -> Dict[str, Any]:
+
+def get_pdf_metadata(file_path: Path) -> dict[str, Any]:
     try:
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             pdf_reader = PyPDF2.PdfReader(file)
 
-            metadata = {
-                "page_count": len(pdf_reader.pages),
-                "encrypted": pdf_reader.is_encrypted
-            }
+            metadata = {"page_count": len(pdf_reader.pages), "encrypted": pdf_reader.is_encrypted}
 
             # Extract document info if available
             if pdf_reader.metadata:
                 info = pdf_reader.metadata
-                metadata.update({
-                    "title": info.get('/Title', ''),
-                    "author": info.get('/Author', ''),
-                    "subject": info.get('/Subject', ''),
-                    "creator": info.get('/Creator', ''),
-                    "producer": info.get('/Producer', ''),
-                    "creation_date": str(info.get('/CreationDate', '')),
-                    "modification_date": str(info.get('/ModDate', ''))
-                })
+                metadata.update(
+                    {
+                        "title": info.get("/Title", ""),
+                        "author": info.get("/Author", ""),
+                        "subject": info.get("/Subject", ""),
+                        "creator": info.get("/Creator", ""),
+                        "producer": info.get("/Producer", ""),
+                        "creation_date": str(info.get("/CreationDate", "")),
+                        "modification_date": str(info.get("/ModDate", "")),
+                    }
+                )
 
             return metadata
     except Exception as e:
         logger.error(f"Error getting PDF metadata from {file_path}: {e}")
         return {"page_count": 0, "encrypted": False}
 
-def extract_images_from_pdf(file_path: Path, output_dir: Path) -> List[Path]:
+
+def extract_images_from_pdf(file_path: Path, output_dir: Path) -> list[Path]:
     image_paths = []
     try:
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             pdf_reader = PyPDF2.PdfReader(file)
 
             for page_num, page in enumerate(pdf_reader.pages):
-                if '/XObject' in page['/Resources']:
-                    xObject = page['/Resources']['/XObject'].get_object()
+                if "/XObject" in page["/Resources"]:
+                    xObject = page["/Resources"]["/XObject"].get_object()
 
                     for obj in xObject:
-                        if xObject[obj]['/Subtype'] == '/Image':
-                            size = (xObject[obj]['/Width'], xObject[obj]['/Height'])
+                        if xObject[obj]["/Subtype"] == "/Image":
+                            size = (xObject[obj]["/Width"], xObject[obj]["/Height"])
                             data = xObject[obj].get_data()
 
-                            if xObject[obj]['/ColorSpace'] == '/DeviceRGB':
+                            if xObject[obj]["/ColorSpace"] == "/DeviceRGB":
                                 mode = "RGB"
                             else:
                                 mode = "P"
 
-                            if '/Filter' in xObject[obj]:
-                                if xObject[obj]['/Filter'] == '/FlateDecode':
+                            if "/Filter" in xObject[obj]:
+                                if xObject[obj]["/Filter"] == "/FlateDecode":
                                     img = Image.frombytes(mode, size, data)
                                     image_path = output_dir / f"page_{page_num}_{obj[1:]}.png"
                                     img.save(image_path)
@@ -82,10 +85,11 @@ def extract_images_from_pdf(file_path: Path, output_dir: Path) -> List[Path]:
         logger.error(f"Error extracting images from PDF {file_path}: {e}")
         return []
 
-def split_pdf_by_pages(file_path: Path, output_dir: Path, pages_per_split: int = 10) -> List[Path]:
+
+def split_pdf_by_pages(file_path: Path, output_dir: Path, pages_per_split: int = 10) -> list[Path]:
     split_files = []
     try:
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             pdf_reader = PyPDF2.PdfReader(file)
             total_pages = len(pdf_reader.pages)
 
@@ -97,7 +101,7 @@ def split_pdf_by_pages(file_path: Path, output_dir: Path, pages_per_split: int =
                     pdf_writer.add_page(pdf_reader.pages[page_num])
 
                 output_path = output_dir / f"split_{start_page + 1}_to_{end_page}.pdf"
-                with open(output_path, 'wb') as output_file:
+                with open(output_path, "wb") as output_file:
                     pdf_writer.write(output_file)
 
                 split_files.append(output_path)

@@ -5,10 +5,10 @@ esummary → titles + abstracts for those PMIDs.
 
 Rate limits (free): 3 req/sec without key, 10 req/sec with NCBI_API_KEY.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import List
 
 import httpx
 from langchain_core.tools import tool
@@ -51,7 +51,7 @@ def search_pubmed(query: str, max_results: int = 5) -> str:
             search = client.get(f"{_EUTILS}/esearch.fcgi", params=params)
             if search.status_code != 200:
                 return f"PubMed esearch error: HTTP {search.status_code}"
-            ids: List[str] = search.json().get("esearchresult", {}).get("idlist", [])
+            ids: list[str] = search.json().get("esearchresult", {}).get("idlist", [])
             if not ids:
                 return f"No PubMed results for: {query}"
 
@@ -66,7 +66,7 @@ def search_pubmed(query: str, max_results: int = 5) -> str:
         return f"PubMed transport error: {exc}"
 
     result = summary.json().get("result", {})
-    lines: List[str] = []
+    lines: list[str] = []
     for pmid in ids:
         item = result.get(pmid) or {}
         title = item.get("title", "(no title)")

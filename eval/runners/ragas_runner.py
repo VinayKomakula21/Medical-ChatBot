@@ -23,6 +23,7 @@ Usage:
   python -m eval.runners.ragas_runner --smoke         # 5-item smoke set
   python -m eval.runners.ragas_runner --limit 10      # first N rows
 """
+
 from __future__ import annotations
 
 import argparse
@@ -156,10 +157,7 @@ def _evaluate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "context_precision",
         "context_recall",
     ]
-    aggregates = {
-        m: float(df[m].dropna().mean()) if m in df.columns else None
-        for m in metric_cols
-    }
+    aggregates = {m: float(df[m].dropna().mean()) if m in df.columns else None for m in metric_cols}
 
     per_row: list[dict[str, Any]] = []
     for i, rec in enumerate(records):
@@ -239,9 +237,7 @@ def main() -> None:
         set_active_retriever(retriever)
         logger.info("Using retriever: %s (embed_model=%s)", retriever.name, args.embed_model)
 
-    dataset_path = (
-        settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
-    )
+    dataset_path = settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
     rows = load_dataset_rows(dataset_path, limit=args.limit)
     if not rows:
         raise SystemExit(

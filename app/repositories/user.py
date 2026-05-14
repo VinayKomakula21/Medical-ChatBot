@@ -2,11 +2,12 @@
 User repository - database operations for User model
 Handles CRUD operations for users
 """
-from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-import logging
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User
 from app.models.auth import GoogleUserInfo
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class UserRepository:
     """Repository for User database operations"""
 
-    async def get_by_id(self, db: AsyncSession, user_id: str) -> Optional[User]:
+    async def get_by_id(self, db: AsyncSession, user_id: str) -> User | None:
         """
         Get user by ID
 
@@ -31,7 +32,7 @@ class UserRepository:
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
+    async def get_by_email(self, db: AsyncSession, email: str) -> User | None:
         """
         Get user by email address
 
@@ -45,7 +46,7 @@ class UserRepository:
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    async def get_by_google_id(self, db: AsyncSession, google_id: str) -> Optional[User]:
+    async def get_by_google_id(self, db: AsyncSession, google_id: str) -> User | None:
         """
         Get user by Google OAuth ID
 
@@ -63,10 +64,10 @@ class UserRepository:
         self,
         db: AsyncSession,
         email: str,
-        name: Optional[str] = None,
-        avatar_url: Optional[str] = None,
-        google_id: Optional[str] = None
-    ) -> Optional[User]:
+        name: str | None = None,
+        avatar_url: str | None = None,
+        google_id: str | None = None,
+    ) -> User | None:
         """
         Create a new user
 
@@ -82,11 +83,7 @@ class UserRepository:
         """
         try:
             user = User(
-                email=email,
-                name=name,
-                avatar_url=avatar_url,
-                google_id=google_id,
-                is_active=True
+                email=email, name=name, avatar_url=avatar_url, google_id=google_id, is_active=True
             )
 
             db.add(user)
@@ -102,10 +99,8 @@ class UserRepository:
             return None
 
     async def create_from_google(
-        self,
-        db: AsyncSession,
-        google_user: GoogleUserInfo
-    ) -> Optional[User]:
+        self, db: AsyncSession, google_user: GoogleUserInfo
+    ) -> User | None:
         """
         Create user from Google OAuth info
 
@@ -121,15 +116,10 @@ class UserRepository:
             email=google_user.email,
             name=google_user.name,
             avatar_url=google_user.picture,
-            google_id=google_user.id
+            google_id=google_user.id,
         )
 
-    async def update(
-        self,
-        db: AsyncSession,
-        user_id: str,
-        **kwargs
-    ) -> Optional[User]:
+    async def update(self, db: AsyncSession, user_id: str, **kwargs) -> User | None:
         """
         Update user fields
 
@@ -157,9 +147,7 @@ class UserRepository:
         return user
 
     async def get_or_create_from_google(
-        self,
-        db: AsyncSession,
-        google_user: GoogleUserInfo
+        self, db: AsyncSession, google_user: GoogleUserInfo
     ) -> User:
         """
         Get existing user by Google ID or create new one

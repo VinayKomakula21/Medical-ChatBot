@@ -10,6 +10,7 @@ Usage:
   python -m eval.runners.agent_runner --smoke    # quick 5-row check
   python -m eval.runners.agent_runner            # full set
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,16 +59,18 @@ async def _generate_answers(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # come from whatever tools it called — we pass the ground-truth contexts
         # as a stand-in for context_recall to be meaningful; faithfulness will
         # still measure whether the answer aligns with those contexts.
-        records.append({
-            "row_id": row.get("id", f"row-{i}"),
-            "question": question,
-            "answer": answer,
-            "contexts": ground_truth_contexts or [""],
-            "ground_truth": ground_truth,
-            "category": category,
-            "n_tool_calls": len(tool_calls),
-            "tool_names": [tc.get("name") for tc in tool_calls],
-        })
+        records.append(
+            {
+                "row_id": row.get("id", f"row-{i}"),
+                "question": question,
+                "answer": answer,
+                "contexts": ground_truth_contexts or [""],
+                "ground_truth": ground_truth,
+                "category": category,
+                "n_tool_calls": len(tool_calls),
+                "tool_names": [tc.get("name") for tc in tool_calls],
+            }
+        )
     return records
 
 
@@ -102,15 +105,17 @@ def _evaluate(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     records = asyncio.run(_generate_answers(rows))
 
-    ragas_dataset = Dataset.from_list([
-        {
-            "question": r["question"],
-            "answer": r["answer"],
-            "contexts": r["contexts"],
-            "ground_truth": r["ground_truth"],
-        }
-        for r in records
-    ])
+    ragas_dataset = Dataset.from_list(
+        [
+            {
+                "question": r["question"],
+                "answer": r["answer"],
+                "contexts": r["contexts"],
+                "ground_truth": r["ground_truth"],
+            }
+            for r in records
+        ]
+    )
 
     logger.info("Running RAGAS metrics on agent answers...")
     result = evaluate(
@@ -123,10 +128,7 @@ def _evaluate(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     df = result.to_pandas()
     metric_cols = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
-    aggregates = {
-        m: float(df[m].dropna().mean()) if m in df.columns else None
-        for m in metric_cols
-    }
+    aggregates = {m: float(df[m].dropna().mean()) if m in df.columns else None for m in metric_cols}
 
     per_row: list[dict[str, Any]] = []
     for i, rec in enumerate(records):
@@ -182,9 +184,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
-    dataset_path = (
-        settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
-    )
+    dataset_path = settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
     rows = load_dataset_rows(dataset_path, limit=args.limit)
     if not rows:
         raise SystemExit(f"No rows in {dataset_path}. Run seed_pubmedqa or pass --smoke.")

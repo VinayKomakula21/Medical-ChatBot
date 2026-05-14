@@ -14,14 +14,15 @@ After running, you must also upload the source abstracts to Pinecone (via the
 existing /api/v1/documents upload endpoint) so retrieval has something to find.
 See eval/README.md for the full setup walkthrough.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import logging
 import random
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -68,9 +69,7 @@ def _iter_pubmedqa(n: int, seed: int) -> Iterable[dict]:
     try:
         from datasets import load_dataset
     except ImportError as exc:
-        raise SystemExit(
-            "datasets package missing. Install with: pip install datasets"
-        ) from exc
+        raise SystemExit("datasets package missing. Install with: pip install datasets") from exc
 
     logger.info("Loading PubMedQA (pqa_labeled, ~1k items)…")
     ds = load_dataset("qiaojin/PubMedQA", "pqa_labeled", split="train")

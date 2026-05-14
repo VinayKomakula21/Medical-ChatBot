@@ -2,36 +2,38 @@
 Document service for handling document upload, processing, and search.
 Uses SQLAlchemy for persistent storage and supports background processing.
 """
+
+import asyncio
 import json
 import logging
 import time
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any
+from uuid import UUID, uuid4
 
+from fastapi import BackgroundTasks, UploadFile
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
+
 # langchain 0.3 split text-splitters into its own package; the old import
 # still exists as a shim but emits deprecation warnings.
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from fastapi import UploadFile, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import (
-    InvalidFileFormatException,
-    FileSizeLimitException,
     DocumentNotFoundException,
-    VectorStoreException
+    FileSizeLimitException,
+    InvalidFileFormatException,
+    VectorStoreException,
 )
+from app.db.pinecone import add_documents
 from app.models.document import (
-    DocumentUploadResponse,
+    DocumentDeleteResponse,
     DocumentInfo,
     DocumentMetadata,
-    DocumentDeleteResponse
+    DocumentUploadResponse,
 )
-from app.db.pinecone import add_documents, delete_documents, get_index_stats
 from app.repositories.document import document_repository
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ class DocumentService:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
-            separators=["\n\n", "\n", " ", ""]
+            separators=["\n\n", "\n", " ", ""],
         )
         self.executor = ThreadPoolExecutor(max_workers=2)
 
@@ -56,7 +58,7 @@ class DocumentService:
         if file.size and file.size > settings.MAX_FILE_SIZE:
             raise FileSizeLimitException(settings.MAX_FILE_SIZE)
 
-    async def _load_document(self, file_path: Path) -> List[Any]:
+    async def _load_document(self, file_path: Path) -> list[Any]:
         file_ext = file_path.suffix.lower()
 
         if file_ext == ".pdf":
@@ -68,10 +70,7 @@ class DocumentService:
             loader = TextLoader(str(file_path))
 
         try:
-            documents = await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                loader.load
-            )
+            documents = await asyncio.get_event_loop().run_in_executor(self.executor, loader.load)
             return documents
         except Exception as e:
             logger.error(f"Error loading document {file_path}: {e}")
@@ -82,8 +81,8 @@ class DocumentService:
         document_id: str,
         file_path: Path,
         filename: str,
-        tags: Optional[List[str]] = None,
-        custom_metadata: Optional[Dict[str, Any]] = None
+        tags: list[str] | None = None,
+        custom_metadata: dict[str, Any] | None = None,
     ):
         """Background task to process document and index in Pinecone."""
         # Create a new database session for background task
@@ -111,7 +110,7 @@ class DocumentService:
                         "filename": filename,
                         "chunk_index": i,
                         "total_chunks": len(text_chunks),
-                        **(chunk.metadata or {})
+                        **(chunk.metadata or {}),
                     }
 
                     if tags:
@@ -129,31 +128,25 @@ class DocumentService:
 
                 # Update document with Pinecone IDs and mark as ready
                 await document_repository.store_pinecone_ids(
-                    db=db,
-                    document_id=document_id,
-                    pinecone_ids=ids,
-                    chunks_count=len(text_chunks)
+                    db=db, document_id=document_id, pinecone_ids=ids, chunks_count=len(text_chunks)
                 )
 
                 # Update processing time
                 await document_repository.update(
-                    db=db,
-                    document_id=document_id,
-                    processing_time=processing_time
+                    db=db, document_id=document_id, processing_time=processing_time
                 )
 
                 await db.commit()
-                logger.info(f"Document {document_id} processed successfully in {processing_time:.2f}s")
+                logger.info(
+                    f"Document {document_id} processed successfully in {processing_time:.2f}s"
+                )
 
             except Exception as e:
                 logger.error(f"Error processing document {document_id}: {e}")
 
                 # Update status to failed
                 await document_repository.update_status(
-                    db=db,
-                    document_id=document_id,
-                    status="failed",
-                    error_message=str(e)
+                    db=db, document_id=document_id, status="failed", error_message=str(e)
                 )
                 await db.commit()
 
@@ -164,10 +157,10 @@ class DocumentService:
         self,
         db: AsyncSession,
         file: UploadFile,
-        background_tasks: Optional[BackgroundTasks] = None,
-        tags: Optional[List[str]] = None,
-        custom_metadata: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None
+        background_tasks: BackgroundTasks | None = None,
+        tags: list[str] | None = None,
+        custom_metadata: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> DocumentUploadResponse:
         """Upload document with optional background processing."""
         start_time = time.time()
@@ -198,7 +191,7 @@ class DocumentService:
                 file_size=file_size,
                 user_id=user_id,
                 tags=tags,
-                custom_metadata=custom_metadata
+                custom_metadata=custom_metadata,
             )
 
             # Use the generated document ID from the repository
@@ -212,7 +205,7 @@ class DocumentService:
                     file_path,
                     file.filename,
                     tags,
-                    custom_metadata
+                    custom_metadata,
                 )
 
                 return DocumentUploadResponse(
@@ -221,7 +214,7 @@ class DocumentService:
                     file_size=file_size,
                     chunks_created=0,  # Will be updated after processing
                     processing_time=time.time() - start_time,
-                    status="processing"
+                    status="processing",
                 )
             else:
                 # Process synchronously
@@ -240,7 +233,7 @@ class DocumentService:
                         "filename": file.filename,
                         "chunk_index": i,
                         "total_chunks": len(text_chunks),
-                        **(chunk.metadata or {})
+                        **(chunk.metadata or {}),
                     }
 
                     if tags:
@@ -264,16 +257,11 @@ class DocumentService:
 
                 # Update document with Pinecone IDs
                 await document_repository.store_pinecone_ids(
-                    db=db,
-                    document_id=document_id,
-                    pinecone_ids=ids,
-                    chunks_count=len(text_chunks)
+                    db=db, document_id=document_id, pinecone_ids=ids, chunks_count=len(text_chunks)
                 )
 
                 await document_repository.update(
-                    db=db,
-                    document_id=document_id,
-                    processing_time=processing_time
+                    db=db, document_id=document_id, processing_time=processing_time
                 )
 
                 return DocumentUploadResponse(
@@ -282,7 +270,7 @@ class DocumentService:
                     file_size=file_size,
                     chunks_created=len(text_chunks),
                     processing_time=processing_time,
-                    status="success"
+                    status="success",
                 )
 
         except Exception as e:
@@ -292,11 +280,7 @@ class DocumentService:
                 file_path.unlink(missing_ok=True)
             raise
 
-    async def delete_document(
-        self,
-        db: AsyncSession,
-        document_id: UUID
-    ) -> DocumentDeleteResponse:
+    async def delete_document(self, db: AsyncSession, document_id: UUID) -> DocumentDeleteResponse:
         """Delete document using stored Pinecone IDs (fixes the bug)."""
         doc_id_str = str(document_id)
 
@@ -315,16 +299,10 @@ class DocumentService:
             raise DocumentNotFoundException(doc_id_str)
 
         return DocumentDeleteResponse(
-            document_id=document_id,
-            status="deleted",
-            chunks_deleted=chunks_deleted
+            document_id=document_id, status="deleted", chunks_deleted=chunks_deleted
         )
 
-    async def get_document_status(
-        self,
-        db: AsyncSession,
-        document_id: str
-    ) -> Dict[str, Any]:
+    async def get_document_status(self, db: AsyncSession, document_id: str) -> dict[str, Any]:
         """Get document processing status."""
         document = await document_repository.get(db, document_id)
         if not document:
@@ -335,25 +313,18 @@ class DocumentService:
             "status": document.status,
             "filename": document.filename,
             "chunks_count": document.chunks_count,
-            "processing_time": document.processing_time
+            "processing_time": document.processing_time,
         }
 
     async def list_documents(
-        self,
-        db: AsyncSession,
-        page: int = 1,
-        page_size: int = 20,
-        user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, db: AsyncSession, page: int = 1, page_size: int = 20, user_id: str | None = None
+    ) -> dict[str, Any]:
         """List documents from database with pagination."""
         skip = (page - 1) * page_size
 
         # Get documents from database
         documents = await document_repository.list(
-            db=db,
-            user_id=user_id,
-            skip=skip,
-            limit=page_size
+            db=db, user_id=user_id, skip=skip, limit=page_size
         )
 
         # Get total count
@@ -376,33 +347,25 @@ class DocumentService:
                     file_type=doc.file_type,
                     file_size=doc.file_size,
                     created_at=doc.created_at.timestamp() if doc.created_at else 0,
-                    tags=tags
+                    tags=tags,
                 ),
                 chunk_count=doc.chunks_count or 0,
-                is_indexed=(doc.status == "ready")
+                is_indexed=(doc.status == "ready"),
             )
             doc_list.append(doc_info)
 
-        return {
-            "documents": doc_list,
-            "total": total,
-            "page": page,
-            "page_size": page_size
-        }
+        return {"documents": doc_list, "total": total, "page": page, "page_size": page_size}
 
     async def search_documents(
         self,
         query: str,
         top_k: int = 5,
-        filter_tags: Optional[List[str]] = None,
-        user_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        filter_tags: list[str] | None = None,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search documents using vector similarity."""
         return await document_repository.search_similar(
-            query=query,
-            top_k=top_k,
-            filter_tags=filter_tags,
-            user_id=user_id
+            query=query, top_k=top_k, filter_tags=filter_tags, user_id=user_id
         )
 
 

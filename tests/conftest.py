@@ -5,6 +5,7 @@ real wall-clock time. They run only when explicitly selected:
 
     pytest -m slow tests/eval/
 """
+
 from __future__ import annotations
 
 import sys

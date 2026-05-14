@@ -11,11 +11,12 @@ Endpoints used here:
   - /REST/rxcui.json?name=<x>          → returns RXCUI (concept id) or empty
   - /interaction/list.json?rxcuis=...  → drug-drug interactions for a CSV of rxcuis
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -29,7 +30,7 @@ class RxNormClient:
     """Thin async wrapper around RxNav. One AsyncClient reused across calls."""
 
     def __init__(self, timeout: float = _TIMEOUT) -> None:
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self._timeout = timeout
         self._lock = asyncio.Lock()
 
@@ -45,7 +46,7 @@ class RxNormClient:
             await self._client.aclose()
             self._client = None
 
-    async def find_rxcui(self, name: str) -> Optional[str]:
+    async def find_rxcui(self, name: str) -> str | None:
         """Look up a drug name → RXCUI (concept id). Returns None if unknown."""
         if not name or not name.strip():
             return None
@@ -68,7 +69,7 @@ class RxNormClient:
         """Quick yes/no — used by SafetyService."""
         return await self.find_rxcui(name) is not None
 
-    async def list_interactions(self, rxcuis: List[str]) -> List[Dict[str, Any]]:
+    async def list_interactions(self, rxcuis: list[str]) -> list[dict[str, Any]]:
         """List drug-drug interactions for a list of RXCUIs.
 
         Returns a flat list of {drug_a, drug_b, severity, description} dicts.
@@ -92,11 +93,8 @@ class RxNormClient:
         except ValueError:
             return []
 
-        out: List[Dict[str, Any]] = []
-        groups = (
-            data.get("fullInteractionTypeGroup", [])
-            or []
-        )
+        out: list[dict[str, Any]] = []
+        groups = data.get("fullInteractionTypeGroup", []) or []
         for grp in groups:
             for ft in grp.get("fullInteractionType", []) or []:
                 pairs = ft.get("interactionPair", []) or []
@@ -104,16 +102,14 @@ class RxNormClient:
                     concepts = pair.get("interactionConcept", []) or []
                     if len(concepts) < 2:
                         continue
-                    out.append({
-                        "drug_a": concepts[0]
-                            .get("minConceptItem", {})
-                            .get("name", ""),
-                        "drug_b": concepts[1]
-                            .get("minConceptItem", {})
-                            .get("name", ""),
-                        "severity": pair.get("severity", ""),
-                        "description": pair.get("description", ""),
-                    })
+                    out.append(
+                        {
+                            "drug_a": concepts[0].get("minConceptItem", {}).get("name", ""),
+                            "drug_b": concepts[1].get("minConceptItem", {}).get("name", ""),
+                            "severity": pair.get("severity", ""),
+                            "description": pair.get("description", ""),
+                        }
+                    )
         return out
 
 

@@ -14,6 +14,7 @@ Usage:
   python -m eval.runners.retrieval_runner --smoke
   python -m eval.runners.retrieval_runner --limit 20 --k 10
 """
+
 from __future__ import annotations
 
 import argparse
@@ -111,9 +112,7 @@ def _evaluate(rows: list[dict[str, Any]], k: int) -> dict[str, Any]:
             }
         )
 
-    aggregates = {
-        m: round(mean(r[m] for r in per_row), 4) for m in metric_cols
-    }
+    aggregates = {m: round(mean(r[m] for r in per_row), 4) for m in metric_cols}
     by_category = aggregate_by_category(per_row, metric_cols)
 
     return {
@@ -166,9 +165,7 @@ def main() -> None:
         set_active_retriever(retriever)
         logger.info("Using retriever: %s (embed_model=%s)", retriever.name, args.embed_model)
 
-    dataset_path = (
-        settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
-    )
+    dataset_path = settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
     rows = load_dataset_rows(dataset_path, limit=args.limit)
     if not rows:
         raise SystemExit(

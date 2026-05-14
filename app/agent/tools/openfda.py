@@ -3,10 +3,10 @@
 Hits api.fda.gov/drug/label.json for a brand or generic name and returns the
 most relevant fields: indications, dosage, warnings, adverse reactions.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import List
 
 import httpx
 from langchain_core.tools import tool
@@ -40,9 +40,7 @@ def lookup_drug_openfda(drug_name: str) -> str:
         A structured summary of the FDA label, or a "not found" message.
     """
     # Search both brand and generic name fields.
-    query = (
-        f'(openfda.brand_name:"{drug_name}" OR openfda.generic_name:"{drug_name}")'
-    )
+    query = f'(openfda.brand_name:"{drug_name}" OR openfda.generic_name:"{drug_name}")'
     params = {"search": query, "limit": "1"}
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
@@ -61,7 +59,7 @@ def lookup_drug_openfda(drug_name: str) -> str:
         return f"No OpenFDA label found for: {drug_name}"
 
     label = results[0]
-    out: List[str] = [f"**{drug_name}** — FDA label summary:"]
+    out: list[str] = [f"**{drug_name}** — FDA label summary:"]
     for field in _FIELDS_OF_INTEREST:
         vals = label.get(field) or []
         if not vals:

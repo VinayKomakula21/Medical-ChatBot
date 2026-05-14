@@ -6,6 +6,7 @@ Covers:
   - JinaReranker with a mocked httpx transport (no live API call)
   - JinaReranker degrades gracefully on transport / status / shape failures
 """
+
 from __future__ import annotations
 
 import json

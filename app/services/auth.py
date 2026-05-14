@@ -2,11 +2,13 @@
 Authentication service - handles JWT tokens and OAuth logic
 Core authentication functions for creating and validating tokens
 """
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from jose import jwt, JWTError
-from passlib.context import CryptContext
+
 import logging
+from datetime import datetime, timedelta
+from typing import Any
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.models.auth import TokenPayload
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def create_access_token(user_id: str, email: str, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(user_id: str, email: str, expires_delta: timedelta | None = None) -> str:
     """
     Create a JWT access token
 
@@ -44,21 +46,17 @@ def create_access_token(user_id: str, email: str, expires_delta: Optional[timede
         "email": email,
         "exp": expire,  # Expiration time
         "iat": datetime.utcnow(),  # Issued at
-        "type": "access"
+        "type": "access",
     }
 
     # Encode JWT
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     logger.info(f"Created access token for user {user_id}")
     return encoded_jwt
 
 
-def decode_access_token(token: str) -> Optional[TokenPayload]:
+def decode_access_token(token: str) -> TokenPayload | None:
     """
     Decode and validate a JWT token
 
@@ -75,11 +73,7 @@ def decode_access_token(token: str) -> Optional[TokenPayload]:
     """
     try:
         # Decode JWT
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
 
         # Validate required fields
         if payload.get("sub") is None:
@@ -92,7 +86,7 @@ def decode_access_token(token: str) -> Optional[TokenPayload]:
             email=payload.get("email"),
             exp=payload.get("exp"),
             iat=payload.get("iat"),
-            type=payload.get("type", "access")
+            type=payload.get("type", "access"),
         )
 
         return token_data
@@ -136,7 +130,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_token_response(user_id: str, email: str, user_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_token_response(user_id: str, email: str, user_data: dict[str, Any]) -> dict[str, Any]:
     """
     Create a complete token response with user info
 
@@ -169,5 +163,5 @@ def create_token_response(user_id: str, email: str, user_data: Dict[str, Any]) -
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
-        "user": user_data
+        "user": user_data,
     }

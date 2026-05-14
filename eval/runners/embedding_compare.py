@@ -24,6 +24,7 @@ Default models (all free):
 First run downloads each model into ~/.cache/huggingface (one-time disk cost,
 ~2GB combined). Subsequent runs are cached.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -141,8 +142,12 @@ def _write_comparison_md(per_model: list[dict[str, Any]], path: Path, *, skip_ra
         lines.append(
             "| `{m}` | {h1:.3f} | {h3:.3f} | {h5:.3f} | {mrr:.3f} | {idx:.1f} | {ev:.1f} |".format(
                 m=entry["model"],
-                h1=agg["hit_at_1"], h3=agg["hit_at_3"], h5=agg["hit_at_5"], mrr=agg["mrr"],
-                idx=entry["index_seconds"], ev=entry["retrieval"]["elapsed_seconds"],
+                h1=agg["hit_at_1"],
+                h3=agg["hit_at_3"],
+                h5=agg["hit_at_5"],
+                mrr=agg["mrr"],
+                idx=entry["index_seconds"],
+                ev=entry["retrieval"]["elapsed_seconds"],
             )
         )
     lines.append("")
@@ -157,9 +162,11 @@ def _write_comparison_md(per_model: list[dict[str, Any]], path: Path, *, skip_ra
         for entry in per_model:
             r = entry.get("ragas") or {}
             agg = r.get("aggregates") or {}
-            def fmt(k: str) -> str:
+
+            def fmt(k: str, agg=agg) -> str:  # bind agg at definition to avoid B023
                 v = agg.get(k)
                 return f"{v:.3f}" if isinstance(v, (int, float)) else "—"
+
             lines.append(
                 "| `{m}` | {f} | {ar} | {cp} | {cr} | {ev:.1f} |".format(
                     m=entry["model"],
@@ -209,12 +216,11 @@ def main() -> None:
 
     models = (
         [m.strip() for m in args.models.split(",") if m.strip()]
-        if args.models else list(DEFAULT_MODELS)
+        if args.models
+        else list(DEFAULT_MODELS)
     )
 
-    dataset_path = (
-        settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
-    )
+    dataset_path = settings.EVAL_SMOKE_DATASET_PATH if args.smoke else settings.EVAL_DATASET_PATH
     rows = load_dataset_rows(dataset_path, limit=args.limit)
     if not rows:
         raise SystemExit(

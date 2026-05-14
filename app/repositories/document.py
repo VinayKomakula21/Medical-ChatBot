@@ -2,18 +2,19 @@
 Document repository for managing document metadata and vectors.
 Uses SQLAlchemy for persistent storage.
 """
+
+import builtins
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select, delete, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.db.models import Document
-from app.db.pinecone import get_index, add_documents, search_similar_documents, delete_documents
+from app.db.pinecone import delete_documents, search_similar_documents
 from app.repositories.base import BaseRepository
 
 
@@ -33,9 +34,9 @@ class DocumentRepository(BaseRepository):
         file_path: str,
         file_type: str,
         file_size: int,
-        user_id: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        custom_metadata: Optional[Dict[str, Any]] = None
+        user_id: str | None = None,
+        tags: list[str] | None = None,
+        custom_metadata: dict[str, Any] | None = None,
     ) -> Document:
         """Create a new document record."""
         doc_id = str(uuid4())
@@ -49,7 +50,7 @@ class DocumentRepository(BaseRepository):
             file_size=file_size,
             status="processing",
             tags=json.dumps(tags) if tags else None,
-            custom_metadata=json.dumps(custom_metadata) if custom_metadata else None
+            custom_metadata=json.dumps(custom_metadata) if custom_metadata else None,
         )
 
         db.add(document)
@@ -58,23 +59,12 @@ class DocumentRepository(BaseRepository):
         self.logger.info(f"Created document record: {doc_id}")
         return document
 
-    async def get(
-        self,
-        db: AsyncSession,
-        document_id: str
-    ) -> Optional[Document]:
+    async def get(self, db: AsyncSession, document_id: str) -> Document | None:
         """Get document by ID."""
-        result = await db.execute(
-            select(Document).where(Document.id == document_id)
-        )
+        result = await db.execute(select(Document).where(Document.id == document_id))
         return result.scalar_one_or_none()
 
-    async def update(
-        self,
-        db: AsyncSession,
-        document_id: str,
-        **kwargs
-    ) -> bool:
+    async def update(self, db: AsyncSession, document_id: str, **kwargs) -> bool:
         """Update document metadata."""
         document = await self.get(db, document_id)
         if not document:
@@ -82,13 +72,20 @@ class DocumentRepository(BaseRepository):
 
         # Update allowed fields
         allowed_fields = [
-            'status', 'chunks_count', 'page_count', 'pinecone_ids',
-            'tags', 'custom_metadata', 'processing_time'
+            "status",
+            "chunks_count",
+            "page_count",
+            "pinecone_ids",
+            "tags",
+            "custom_metadata",
+            "processing_time",
         ]
 
         for field, value in kwargs.items():
             if field in allowed_fields:
-                if field in ['tags', 'custom_metadata', 'pinecone_ids'] and not isinstance(value, str):
+                if field in ["tags", "custom_metadata", "pinecone_ids"] and not isinstance(
+                    value, str
+                ):
                     value = json.dumps(value)
                 setattr(document, field, value)
 
@@ -98,11 +95,7 @@ class DocumentRepository(BaseRepository):
         self.logger.info(f"Updated document: {document_id}")
         return True
 
-    async def delete(
-        self,
-        db: AsyncSession,
-        document_id: str
-    ) -> bool:
+    async def delete(self, db: AsyncSession, document_id: str) -> bool:
         """Delete document, its vectors from Pinecone, and file from disk."""
         document = await self.get(db, document_id)
         if not document:
@@ -134,12 +127,12 @@ class DocumentRepository(BaseRepository):
     async def list(
         self,
         db: AsyncSession,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         skip: int = 0,
         limit: int = 100,
-        tags: Optional[List[str]] = None,
-        status: Optional[str] = None
-    ) -> List[Document]:
+        tags: list[str] | None = None,
+        status: str | None = None,
+    ) -> list[Document]:
         """List documents with pagination and optional filtering."""
         query = select(Document).order_by(Document.created_at.desc())
 
@@ -157,6 +150,7 @@ class DocumentRepository(BaseRepository):
                 tag_conditions.append(Document.tags.contains(f'"{tag}"'))
             if tag_conditions:
                 from sqlalchemy import or_
+
                 query = query.where(or_(*tag_conditions))
 
         query = query.offset(skip).limit(limit)
@@ -164,10 +158,7 @@ class DocumentRepository(BaseRepository):
         return list(result.scalars().all())
 
     async def count(
-        self,
-        db: AsyncSession,
-        user_id: Optional[str] = None,
-        status: Optional[str] = None
+        self, db: AsyncSession, user_id: str | None = None, status: str | None = None
     ) -> int:
         """Count documents with optional filtering."""
         query = select(func.count(Document.id))
@@ -182,11 +173,7 @@ class DocumentRepository(BaseRepository):
         return result.scalar() or 0
 
     async def update_status(
-        self,
-        db: AsyncSession,
-        document_id: str,
-        status: str,
-        error_message: Optional[str] = None
+        self, db: AsyncSession, document_id: str, status: str, error_message: str | None = None
     ) -> bool:
         """Update document processing status."""
         document = await self.get(db, document_id)
@@ -196,8 +183,8 @@ class DocumentRepository(BaseRepository):
         document.status = status
         if error_message:
             # Store error in custom_metadata
-            metadata = json.loads(document.custom_metadata or '{}')
-            metadata['error'] = error_message
+            metadata = json.loads(document.custom_metadata or "{}")
+            metadata["error"] = error_message
             document.custom_metadata = json.dumps(metadata)
 
         document.updated_at = datetime.utcnow()
@@ -210,8 +197,8 @@ class DocumentRepository(BaseRepository):
         self,
         db: AsyncSession,
         document_id: str,
-        pinecone_ids: List[str],
-        chunks_count: int
+        pinecone_ids: builtins.list[str],
+        chunks_count: int,
     ) -> bool:
         """Store Pinecone vector IDs after successful indexing."""
         document = await self.get(db, document_id)
@@ -256,9 +243,9 @@ class DocumentRepository(BaseRepository):
         self,
         query: str,
         top_k: int = 5,
-        filter_tags: Optional[List[str]] = None,
-        user_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        filter_tags: builtins.list[str] | None = None,
+        user_id: str | None = None,
+    ) -> builtins.list[dict[str, Any]]:
         """Search for similar documents using vector similarity."""
         try:
             # Build filter if tags or user_id provided
@@ -270,9 +257,7 @@ class DocumentRepository(BaseRepository):
 
             # Search using the pinecone search function
             results = search_similar_documents(
-                query=query,
-                k=top_k,
-                filter=filter_dict if filter_dict else None
+                query=query, k=top_k, filter=filter_dict if filter_dict else None
             )
 
             return results
@@ -281,11 +266,7 @@ class DocumentRepository(BaseRepository):
             self.logger.error(f"Failed to search similar documents: {e}")
             return []
 
-    async def get_statistics(
-        self,
-        db: AsyncSession,
-        user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def get_statistics(self, db: AsyncSession, user_id: str | None = None) -> dict[str, Any]:
         """Get document repository statistics."""
         query_base = select(Document)
         if user_id:
@@ -320,10 +301,10 @@ class DocumentRepository(BaseRepository):
             "total_chunks": total_chunks,
             "unique_tags": len(tags),
             "total_size_bytes": total_size,
-            "total_size_mb": round(total_size / (1024 * 1024), 2)
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
         }
 
-    def get_tags_list(self, document: Document) -> List[str]:
+    def get_tags_list(self, document: Document) -> builtins.list[str]:
         """Helper to get tags as a list from document."""
         if document.tags:
             try:
@@ -332,7 +313,7 @@ class DocumentRepository(BaseRepository):
                 return []
         return []
 
-    def get_pinecone_ids_list(self, document: Document) -> List[str]:
+    def get_pinecone_ids_list(self, document: Document) -> builtins.list[str]:
         """Helper to get Pinecone IDs as a list from document."""
         if document.pinecone_ids:
             try:

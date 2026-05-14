@@ -13,11 +13,13 @@ points at this Chroma collection instead of Pinecone for the comparison run.
 
 Production code paths are untouched — these adapters live entirely under eval/.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Protocol
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ class Retriever(Protocol):
 
     name: str
 
-    def search(self, query: str, k: int = 5) -> List[dict]:
+    def search(self, query: str, k: int = 5) -> list[dict]:
         """Return [{id, content, metadata, score}, ...] — same shape as
         app.db.pinecone.search_similar_documents.
         """
@@ -54,7 +56,7 @@ class PineconeRetriever:
 
         self._search = search_similar_documents
 
-    def search(self, query: str, k: int = 5) -> List[dict]:
+    def search(self, query: str, k: int = 5) -> list[dict]:
         try:
             return self._search(query=query, k=k) or []
         except Exception as exc:  # noqa: BLE001
@@ -92,9 +94,7 @@ class ChromaRetriever:
 
         self._PERSIST_DIR.mkdir(parents=True, exist_ok=True)
         self._client = chromadb.PersistentClient(path=str(self._PERSIST_DIR))
-        self._ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=embed_model
-        )
+        self._ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=embed_model)
         # get_or_create makes re-runs idempotent; rebuild_corpus() clears+rebuilds
         # for fresh measurements.
         self._collection = self._client.get_or_create_collection(
@@ -104,7 +104,9 @@ class ChromaRetriever:
         )
         logger.info(
             "Chroma collection ready: %s (embed_model=%s, n=%d)",
-            collection_name, embed_model, self._collection.count(),
+            collection_name,
+            embed_model,
+            self._collection.count(),
         )
 
     def rebuild_corpus(self, texts: Iterable[str]) -> int:
@@ -133,33 +135,35 @@ class ChromaRetriever:
         self._collection.add(documents=unique_texts, ids=ids)
         logger.info(
             "Indexed %d docs into %s (embed_model=%s)",
-            len(unique_texts), self.collection_name, self.embed_model,
+            len(unique_texts),
+            self.collection_name,
+            self.embed_model,
         )
         return len(unique_texts)
 
-    def search(self, query: str, k: int = 5) -> List[dict]:
+    def search(self, query: str, k: int = 5) -> list[dict]:
         if self._collection.count() == 0:
-            logger.warning(
-                "ChromaRetriever.search called before rebuild_corpus — empty result."
-            )
+            logger.warning("ChromaRetriever.search called before rebuild_corpus — empty result.")
             return []
 
         res = self._collection.query(query_texts=[query], n_results=k)
-        docs: List[str] = (res.get("documents") or [[]])[0]
-        ids: List[str] = (res.get("ids") or [[]])[0]
+        docs: list[str] = (res.get("documents") or [[]])[0]
+        ids: list[str] = (res.get("ids") or [[]])[0]
         # Chroma returns L2 distances by default — lower is better. Flip to a
         # similarity-shaped score so it lines up with Pinecone's cosine score.
-        dists: List[float] = (res.get("distances") or [[]])[0]
-        out: List[dict] = []
+        dists: list[float] = (res.get("distances") or [[]])[0]
+        out: list[dict] = []
         for i, doc in enumerate(docs):
             score = 1.0 / (1.0 + dists[i]) if i < len(dists) else 0.0
-            out.append({
-                "id": ids[i] if i < len(ids) else f"doc-{i}",
-                "content": doc,
-                "metadata": {"embed_model": self.embed_model},
-                "score": score,
-                "source": "chroma",
-            })
+            out.append(
+                {
+                    "id": ids[i] if i < len(ids) else f"doc-{i}",
+                    "content": doc,
+                    "metadata": {"embed_model": self.embed_model},
+                    "score": score,
+                    "source": "chroma",
+                }
+            )
         return out
 
 
@@ -168,8 +172,8 @@ class ChromaRetriever:
 # ---------------------------------------------------------------------------
 def build_retriever(
     kind: str,
-    embed_model: Optional[str] = None,
-    collection_name: Optional[str] = None,
+    embed_model: str | None = None,
+    collection_name: str | None = None,
 ) -> Retriever:
     """One-stop retriever factory used by CLI runners.
 

@@ -2,20 +2,22 @@
 Authentication endpoints - OAuth login and user management
 Handles Google OAuth flow and user authentication
 """
+
+import logging
+
+import httpx
+from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from authlib.integrations.starlette_client import OAuth
-import httpx
-import logging
 
 from app.core.config import settings
-from app.db.database import get_db
-from app.models.auth import Token, UserResponse, GoogleUserInfo
-from app.services.auth import create_token_response
-from app.repositories.user import user_repository
 from app.core.security import get_current_user
+from app.db.database import get_db
 from app.db.models import User
+from app.models.auth import GoogleUserInfo, UserResponse
+from app.repositories.user import user_repository
+from app.services.auth import create_token_response
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +29,11 @@ oauth = OAuth()
 # Only configure Google OAuth if credentials are provided
 if settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:
     oauth.register(
-        name='google',
+        name="google",
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,
-        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-        client_kwargs={
-            'scope': 'openid email profile'
-        }
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
     )
     logger.info("Google OAuth configured")
 else:
@@ -58,8 +58,7 @@ async def google_login():
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google OAuth is not configured"
         )
 
     # Build Google OAuth URL
@@ -79,10 +78,7 @@ async def google_login():
 
 
 @router.get("/google/callback")
-async def google_callback(
-    code: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def google_callback(code: str, db: AsyncSession = Depends(get_db)):
     """
     Handle Google OAuth callback
 
@@ -103,8 +99,7 @@ async def google_callback(
     """
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google OAuth is not configured"
         )
 
     try:
@@ -117,15 +112,15 @@ async def google_callback(
                     "client_id": settings.GOOGLE_CLIENT_ID,
                     "client_secret": settings.GOOGLE_CLIENT_SECRET,
                     "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-                    "grant_type": "authorization_code"
-                }
+                    "grant_type": "authorization_code",
+                },
             )
 
             if token_response.status_code != 200:
                 logger.error(f"Failed to get access token: {token_response.text}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to authenticate with Google"
+                    detail="Failed to authenticate with Google",
                 )
 
             token_data = token_response.json()
@@ -134,14 +129,14 @@ async def google_callback(
             # Get user info from Google
             user_info_response = await client.get(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {access_token}"}
+                headers={"Authorization": f"Bearer {access_token}"},
             )
 
             if user_info_response.status_code != 200:
                 logger.error(f"Failed to get user info: {user_info_response.text}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to get user information from Google"
+                    detail="Failed to get user information from Google",
                 )
 
             google_user_data = user_info_response.json()
@@ -161,8 +156,8 @@ async def google_callback(
                 "name": user.name,
                 "avatar_url": user.avatar_url,
                 "is_active": user.is_active,
-                "created_at": user.created_at.isoformat()
-            }
+                "created_at": user.created_at.isoformat(),
+            },
         )
 
         # Redirect to frontend with token
@@ -170,24 +165,19 @@ async def google_callback(
         access_token = token_response_data["access_token"]
 
         # Frontend should handle this URL and store the token
-        return RedirectResponse(
-            url=f"{frontend_url}/auth/callback?token={access_token}"
-        )
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={access_token}")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in Google OAuth callback: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication failed"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication failed"
         )
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user's information
 
@@ -206,14 +196,12 @@ async def get_current_user_info(
         name=current_user.name,
         avatar_url=current_user.avatar_url,
         is_active=current_user.is_active,
-        created_at=current_user.created_at
+        created_at=current_user.created_at,
     )
 
 
 @router.post("/logout")
-async def logout(
-    current_user: User = Depends(get_current_user)
-):
+async def logout(current_user: User = Depends(get_current_user)):
     """
     Logout current user
 
@@ -235,5 +223,5 @@ async def logout(
     logger.info(f"User logged out: {current_user.id}")
     return {
         "message": "Successfully logged out",
-        "detail": "Please delete the token from your client storage"
+        "detail": "Please delete the token from your client storage",
     }

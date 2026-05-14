@@ -2,16 +2,16 @@
 Chat repository for managing conversations and messages.
 Uses SQLAlchemy for persistent storage.
 """
-import json
+
+import builtins
 from datetime import datetime
-from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, delete, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Conversation, Message, User
+from app.db.models import Conversation, Message
 from app.models.chat import ChatMessage, ConversationHistory
 from app.repositories.base import BaseRepository
 
@@ -28,15 +28,15 @@ class ChatRepository(BaseRepository):
     async def create(
         self,
         db: AsyncSession,
-        user_id: Optional[str] = None,
-        title: Optional[str] = None,
-        conversation_id: Optional[str] = None
+        user_id: str | None = None,
+        title: str | None = None,
+        conversation_id: str | None = None,
     ) -> Conversation:
         """Create a new conversation with optional specific ID."""
         conversation = Conversation(
             id=conversation_id or str(uuid4()),  # Use provided ID or generate new
             user_id=user_id,  # Can be None for anonymous users
-            title=title
+            title=title,
         )
         db.add(conversation)
         await db.flush()
@@ -44,11 +44,7 @@ class ChatRepository(BaseRepository):
         self.logger.info(f"Created new conversation: {conversation.id}")
         return conversation
 
-    async def get(
-        self,
-        db: AsyncSession,
-        conversation_id: str
-    ) -> Optional[Conversation]:
+    async def get(self, db: AsyncSession, conversation_id: str) -> Conversation | None:
         """Get conversation by ID."""
         result = await db.execute(
             select(Conversation)
@@ -58,10 +54,7 @@ class ChatRepository(BaseRepository):
         return result.scalar_one_or_none()
 
     async def get_or_create(
-        self,
-        db: AsyncSession,
-        conversation_id: Optional[UUID] = None,
-        user_id: Optional[str] = None
+        self, db: AsyncSession, conversation_id: UUID | None = None, user_id: str | None = None
     ) -> Conversation:
         """Get existing conversation or create a new one."""
         if conversation_id:
@@ -74,10 +67,7 @@ class ChatRepository(BaseRepository):
         return await self.create(db, user_id=user_id)
 
     async def update(
-        self,
-        db: AsyncSession,
-        conversation_id: str,
-        title: Optional[str] = None
+        self, db: AsyncSession, conversation_id: str, title: str | None = None
     ) -> bool:
         """Update conversation metadata."""
         conversation = await self.get(db, conversation_id)
@@ -91,11 +81,7 @@ class ChatRepository(BaseRepository):
         self.logger.info(f"Updated conversation: {conversation_id}")
         return True
 
-    async def delete(
-        self,
-        db: AsyncSession,
-        conversation_id: str
-    ) -> bool:
+    async def delete(self, db: AsyncSession, conversation_id: str) -> bool:
         """Delete a conversation and its messages (cascade)."""
         conversation = await self.get(db, conversation_id)
         if not conversation:
@@ -108,12 +94,8 @@ class ChatRepository(BaseRepository):
         return True
 
     async def list(
-        self,
-        db: AsyncSession,
-        user_id: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 100
-    ) -> List[Conversation]:
+        self, db: AsyncSession, user_id: str | None = None, skip: int = 0, limit: int = 100
+    ) -> list[Conversation]:
         """List conversations with pagination."""
         query = select(Conversation).order_by(Conversation.updated_at.desc())
 
@@ -130,7 +112,7 @@ class ChatRepository(BaseRepository):
         conversation_id: UUID,
         role: str,
         content: str,
-        user_id: Optional[str] = None
+        user_id: str | None = None,
     ) -> Message:
         """Add a message to a conversation."""
         conv_id_str = str(conversation_id)
@@ -146,7 +128,7 @@ class ChatRepository(BaseRepository):
             id=str(uuid4()),
             conversation_id=conv_id_str,  # Always use the original ID
             role=role,
-            content=content
+            content=content,
         )
         db.add(message)
 
@@ -158,11 +140,8 @@ class ChatRepository(BaseRepository):
         return message
 
     async def get_messages(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID,
-        limit: Optional[int] = None
-    ) -> List[Message]:
+        self, db: AsyncSession, conversation_id: UUID, limit: int | None = None
+    ) -> builtins.list[Message]:
         """Get messages for a conversation."""
         conv_id_str = str(conversation_id)
 
@@ -187,11 +166,7 @@ class ChatRepository(BaseRepository):
         result = await db.execute(query)
         return list(result.scalars().all())
 
-    async def clear_messages(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID
-    ) -> bool:
+    async def clear_messages(self, db: AsyncSession, conversation_id: UUID) -> bool:
         """Clear all messages in a conversation."""
         conv_id_str = str(conversation_id)
 
@@ -200,9 +175,7 @@ class ChatRepository(BaseRepository):
             return False
 
         # Delete all messages for this conversation
-        await db.execute(
-            delete(Message).where(Message.conversation_id == conv_id_str)
-        )
+        await db.execute(delete(Message).where(Message.conversation_id == conv_id_str))
 
         conversation.updated_at = datetime.utcnow()
         await db.flush()
@@ -211,10 +184,7 @@ class ChatRepository(BaseRepository):
         return True
 
     async def get_conversation_context(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID,
-        max_messages: int = 10
+        self, db: AsyncSession, conversation_id: UUID, max_messages: int = 10
     ) -> str:
         """Get formatted conversation context for LLM."""
         messages = await self.get_messages(db, conversation_id, limit=max_messages)
@@ -230,12 +200,8 @@ class ChatRepository(BaseRepository):
         return "\n".join(context_parts)
 
     async def search_conversations(
-        self,
-        db: AsyncSession,
-        query: str,
-        user_id: Optional[str] = None,
-        limit: int = 10
-    ) -> List[Conversation]:
+        self, db: AsyncSession, query: str, user_id: str | None = None, limit: int = 10
+    ) -> builtins.list[Conversation]:
         """Search conversations by message content."""
         query_lower = f"%{query.lower()}%"
 
@@ -259,26 +225,19 @@ class ChatRepository(BaseRepository):
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_message_count(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID
-    ) -> int:
+    async def get_message_count(self, db: AsyncSession, conversation_id: UUID) -> int:
         """Get the number of messages in a conversation."""
         conv_id_str = str(conversation_id)
 
         result = await db.execute(
-            select(func.count(Message.id))
-            .where(Message.conversation_id == conv_id_str)
+            select(func.count(Message.id)).where(Message.conversation_id == conv_id_str)
         )
         return result.scalar() or 0
 
     # Helper method for backward compatibility with Pydantic models
     async def get_conversation_history(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID
-    ) -> Optional[ConversationHistory]:
+        self, db: AsyncSession, conversation_id: UUID
+    ) -> ConversationHistory | None:
         """Get conversation as ConversationHistory Pydantic model."""
         conv_id_str = str(conversation_id)
         conversation = await self.get(db, conv_id_str)
@@ -290,9 +249,7 @@ class ChatRepository(BaseRepository):
 
         chat_messages = [
             ChatMessage(
-                role=msg.role,
-                content=msg.content,
-                timestamp=msg.created_at or datetime.utcnow()
+                role=msg.role, content=msg.content, timestamp=msg.created_at or datetime.utcnow()
             )
             for msg in messages
         ]
@@ -302,7 +259,7 @@ class ChatRepository(BaseRepository):
             messages=chat_messages,
             created_at=conversation.created_at or datetime.utcnow(),
             updated_at=conversation.updated_at or datetime.utcnow(),
-            metadata={}
+            metadata={},
         )
 
 

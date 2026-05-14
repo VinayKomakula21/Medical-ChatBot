@@ -3,11 +3,11 @@
 The agent calls this when the user asks about combining medications. Reuses
 the same RxNormClient that the SafetyService uses (Item #6).
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import List
 
 from langchain_core.tools import tool
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @tool
-def check_drug_interactions(drug_names: List[str]) -> str:
+def check_drug_interactions(drug_names: list[str]) -> str:
     """Check NIH RxNorm for known interactions between a list of drugs.
 
     Use this when the user asks whether two or more medications can be taken
@@ -39,27 +39,23 @@ def check_drug_interactions(drug_names: List[str]) -> str:
         rxcui_tasks = [rxnorm_client.find_rxcui(n) for n in drug_names]
         rxcuis_or_none = await asyncio.gather(*rxcui_tasks)
         resolved = [
-            (name, rxcui) for name, rxcui in zip(drug_names, rxcuis_or_none) if rxcui
+            (name, rxcui) for name, rxcui in zip(drug_names, rxcuis_or_none, strict=True) if rxcui
         ]
         if len(resolved) < 2:
-            unresolved = [n for n, r in zip(drug_names, rxcuis_or_none) if not r]
+            unresolved = [n for n, r in zip(drug_names, rxcuis_or_none, strict=True) if not r]
             return f"Could not resolve in RxNorm: {', '.join(unresolved)}"
 
         rxcuis = [r for _, r in resolved]
         interactions = await rxnorm_client.list_interactions(rxcuis)
         if not interactions:
             return (
-                f"No known interactions in NIH RxNorm between: "
-                f"{', '.join(n for n, _ in resolved)}."
+                f"No known interactions in NIH RxNorm between: {', '.join(n for n, _ in resolved)}."
             )
 
         out = ["**Known drug interactions:**"]
         for it in interactions[:8]:
             sev = it.get("severity") or "?"
-            out.append(
-                f"- {it['drug_a']} ↔ {it['drug_b']} ({sev}): "
-                f"{it['description'][:200]}"
-            )
+            out.append(f"- {it['drug_a']} ↔ {it['drug_b']} ({sev}): {it['description'][:200]}")
         return "\n".join(out)
 
     # The tool sync wrapper: run the coroutine in a private loop so callers

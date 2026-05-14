@@ -19,10 +19,11 @@ Free-tier defaults:
 Production wiring lives in HybridSearchService.search — this module just
 exposes get_reranker(), which respects settings.RERANKER_PROVIDER.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional, Protocol
+from typing import Protocol
 
 import httpx
 
@@ -39,9 +40,9 @@ class Reranker(Protocol):
     def rerank(
         self,
         query: str,
-        candidates: List[dict],
+        candidates: list[dict],
         top_k: int,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return at most top_k candidates with `rerank_score` field added,
         sorted desc by rerank_score.
         """
@@ -57,9 +58,9 @@ class NoopReranker:
     def rerank(
         self,
         query: str,
-        candidates: List[dict],
+        candidates: list[dict],
         top_k: int,
-    ) -> List[dict]:
+    ) -> list[dict]:
         return candidates[:top_k]
 
 
@@ -85,9 +86,9 @@ class JinaReranker:
     def rerank(
         self,
         query: str,
-        candidates: List[dict],
+        candidates: list[dict],
         top_k: int,
-    ) -> List[dict]:
+    ) -> list[dict]:
         if not candidates:
             return []
         if not self._api_key:
@@ -114,9 +115,7 @@ class JinaReranker:
             return candidates[:top_k]
 
         if resp.status_code != 200:
-            logger.warning(
-                "Jina rerank %d: %s — passthrough", resp.status_code, resp.text[:200]
-            )
+            logger.warning("Jina rerank %d: %s — passthrough", resp.status_code, resp.text[:200])
             return candidates[:top_k]
 
         try:
@@ -129,7 +128,7 @@ class JinaReranker:
         if not ranked:
             return candidates[:top_k]
 
-        out: List[dict] = []
+        out: list[dict] = []
         for r in ranked:
             idx = r.get("index")
             score = r.get("relevance_score")
@@ -144,7 +143,7 @@ class JinaReranker:
 # ---------------------------------------------------------------------------
 # Factory — single entry point for the rest of the app.
 # ---------------------------------------------------------------------------
-_cached: Optional[Reranker] = None
+_cached: Reranker | None = None
 
 
 def get_reranker() -> Reranker:

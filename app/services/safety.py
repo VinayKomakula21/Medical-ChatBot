@@ -17,12 +17,13 @@ What it checks (all free-tier, no paid services):
 Returns SafetyVerdict — the chat service decides whether to block, annotate,
 or pass through. v0 default: annotate (less disruptive than blocking).
 """
+
 from __future__ import annotations
 
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.clients.rxnorm import rxnorm_client
 from app.core.config import settings
@@ -39,9 +40,18 @@ _OUT_OF_SCOPE = re.compile(
 
 # Emergency-keyword set (extracted from chat_groq.py for reuse / testability).
 EMERGENCY_KEYWORDS = (
-    "chest pain", "can't breathe", "cannot breathe", "trouble breathing",
-    "severe bleeding", "stroke", "heart attack", "unconscious",
-    "choking", "severe pain", "suicidal", "overdose",
+    "chest pain",
+    "can't breathe",
+    "cannot breathe",
+    "trouble breathing",
+    "severe bleeding",
+    "stroke",
+    "heart attack",
+    "unconscious",
+    "choking",
+    "severe pain",
+    "suicidal",
+    "overdose",
 )
 
 EMERGENCY_PREFIX = (
@@ -74,19 +84,65 @@ class SafetyVerdict:
     annotated_answer: str
     out_of_scope: bool = False
     is_emergency: bool = False
-    faithfulness_score: Optional[float] = None
-    unverified_drugs: List[str] = field(default_factory=list)
-    notes: List[str] = field(default_factory=list)
+    faithfulness_score: float | None = None
+    unverified_drugs: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 # Stopwords used by the faithfulness heuristic. Tiny on purpose.
-_FAITHFULNESS_STOPWORDS = frozenset({
-    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has",
-    "have", "in", "is", "it", "its", "of", "on", "or", "that", "the", "to",
-    "was", "were", "will", "with", "this", "these", "those", "but", "not",
-    "no", "do", "does", "can", "may", "if", "when", "which", "what", "how",
-    "your", "you", "their", "they", "them", "we", "our", "i",
-})
+_FAITHFULNESS_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "has",
+        "have",
+        "in",
+        "is",
+        "it",
+        "its",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "to",
+        "was",
+        "were",
+        "will",
+        "with",
+        "this",
+        "these",
+        "those",
+        "but",
+        "not",
+        "no",
+        "do",
+        "does",
+        "can",
+        "may",
+        "if",
+        "when",
+        "which",
+        "what",
+        "how",
+        "your",
+        "you",
+        "their",
+        "they",
+        "them",
+        "we",
+        "our",
+        "i",
+    }
+)
 
 # Patterns that look like a drug name in a sentence: capitalized-ish words.
 # This is a heuristic — RxNorm is the source of truth. The pattern just
@@ -95,10 +151,7 @@ _DRUG_CANDIDATE = re.compile(r"\b([A-Z][a-z]{3,}(?:-[a-z]+)?)\b")
 
 
 def _tokens(text: str) -> set[str]:
-    return {
-        w for w in re.findall(r"[a-z]{4,}", text.lower())
-        if w not in _FAITHFULNESS_STOPWORDS
-    }
+    return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _FAITHFULNESS_STOPWORDS}
 
 
 class SafetyService:
@@ -112,7 +165,7 @@ class SafetyService:
     async def check(
         self,
         question: str,
-        retrieved_chunks: List[Dict[str, Any]],
+        retrieved_chunks: list[dict[str, Any]],
         answer: str,
     ) -> SafetyVerdict:
         verdict = SafetyVerdict(annotated_answer=answer)
@@ -159,9 +212,7 @@ class SafetyService:
                 if hits < 2:
                     unsupported.append(term)
             if unsupported:
-                verdict.notes.append(
-                    f"Single-evidence terms: {', '.join(unsupported[:5])}"
-                )
+                verdict.notes.append(f"Single-evidence terms: {', '.join(unsupported[:5])}")
 
         # 5. Drug-name validation (async parallel calls to RxNorm)
         if settings.SAFETY_VALIDATE_DRUG_NAMES:
@@ -173,27 +224,58 @@ class SafetyService:
                     verdict.annotated_answer += UNVERIFIED_DRUG_BANNER_TMPL.format(
                         names=", ".join(unverified[:5])
                     )
-                    verdict.notes.append(
-                        f"Unverified drug names: {', '.join(unverified[:5])}"
-                    )
+                    verdict.notes.append(f"Unverified drug names: {', '.join(unverified[:5])}")
 
         return verdict
 
     @staticmethod
-    def _extract_drug_candidates(answer: str) -> List[str]:
+    def _extract_drug_candidates(answer: str) -> list[str]:
         """Heuristic prefilter — capitalized words ≥4 chars that aren't obvious
         non-drugs. RxNorm decides if they're real.
         """
         # Skip common non-drug capitalized words to save API calls.
         non_drug = {
-            "Note", "Warning", "URGENT", "Symptoms", "Treatment", "Diagnosis",
-            "Prevention", "When", "What", "How", "Common", "Severe", "Mild",
-            "Chronic", "Acute", "Patient", "Patients", "Doctor", "Hospital",
-            "Emergency", "Medical", "Health", "Healthcare", "Pain", "Fever",
-            "Cancer", "Diabetes", "Asthma", "Heart", "Brain", "Lung", "Liver",
-            "Kidney", "American", "European", "FDA", "CDC", "WHO", "NIH",
+            "Note",
+            "Warning",
+            "URGENT",
+            "Symptoms",
+            "Treatment",
+            "Diagnosis",
+            "Prevention",
+            "When",
+            "What",
+            "How",
+            "Common",
+            "Severe",
+            "Mild",
+            "Chronic",
+            "Acute",
+            "Patient",
+            "Patients",
+            "Doctor",
+            "Hospital",
+            "Emergency",
+            "Medical",
+            "Health",
+            "Healthcare",
+            "Pain",
+            "Fever",
+            "Cancer",
+            "Diabetes",
+            "Asthma",
+            "Heart",
+            "Brain",
+            "Lung",
+            "Liver",
+            "Kidney",
+            "American",
+            "European",
+            "FDA",
+            "CDC",
+            "WHO",
+            "NIH",
         }
-        seen: List[str] = []
+        seen: list[str] = []
         for m in _DRUG_CANDIDATE.finditer(answer):
             w = m.group(1)
             if w in non_drug:
@@ -206,7 +288,7 @@ class SafetyService:
         return seen
 
     @staticmethod
-    async def _validate_drug_names(candidates: List[str]) -> List[str]:
+    async def _validate_drug_names(candidates: list[str]) -> list[str]:
         """Return the subset that RxNorm does NOT know about."""
         import asyncio as _asyncio
 

@@ -1,8 +1,8 @@
-from typing import Optional
-from pydantic_settings import BaseSettings
-from pydantic import Field, validator
-import os
 from pathlib import Path
+
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Medical ChatBot API"
@@ -16,9 +16,7 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, env="DEBUG")
 
     # CORS settings - comma-separated string
-    BACKEND_CORS_ORIGINS: str = Field(
-        default="http://localhost:5173"
-    )
+    BACKEND_CORS_ORIGINS: str = Field(default="http://localhost:5173")
 
     # Pinecone settings
     PINECONE_API_KEY: str = Field(..., env="PINECONE_API_KEY")
@@ -26,17 +24,17 @@ class Settings(BaseSettings):
     PINECONE_DIMENSION: int = Field(default=384, env="PINECONE_DIMENSION")
 
     # Groq settings
-    GROQ_API_KEY: Optional[str] = Field(default=None, env="GROQ_API_KEY")
+    GROQ_API_KEY: str | None = Field(default=None, env="GROQ_API_KEY")
 
     # HuggingFace settings
     HF_TOKEN: str = Field(..., env="HF_TOKEN")
     HF_MODEL_ID: str = Field(
         default="microsoft/phi-2",  # Changed to Phi-2 for efficiency
-        env="HF_MODEL_ID"
+        env="HF_MODEL_ID",
     )
     EMBEDDING_MODEL: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",  # Using via API now
-        env="EMBEDDING_MODEL"
+        env="EMBEDDING_MODEL",
     )
 
     # LLM settings
@@ -50,39 +48,33 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: str = Field(default=".pdf,.txt,.docx")
 
     # Upload settings
-    UPLOAD_DIR: Path = Field(
-        default=Path("uploads"),
-        env="UPLOAD_DIR"
-    )
+    UPLOAD_DIR: Path = Field(default=Path("uploads"), env="UPLOAD_DIR")
 
     # Database settings
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./medical_chatbot.db",
-        env="DATABASE_URL"
+        default="sqlite+aiosqlite:///./medical_chatbot.db", env="DATABASE_URL"
     )
 
     # Security settings - JWT
     SECRET_KEY: str = Field(
         default="your-secret-key-change-in-production-min-32-chars",
         env="SECRET_KEY",
-        description="Secret key for JWT token signing (MUST change in production!)"
+        description="Secret key for JWT token signing (MUST change in production!)",
     )
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440, env="ACCESS_TOKEN_EXPIRE_MINUTES")  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=1440, env="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )  # 24 hours
 
     # Google OAuth settings
-    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
+    GOOGLE_CLIENT_ID: str | None = Field(default=None, env="GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: str | None = Field(default=None, env="GOOGLE_CLIENT_SECRET")
     GOOGLE_REDIRECT_URI: str = Field(
-        default="http://localhost:8000/api/v1/auth/google/callback",
-        env="GOOGLE_REDIRECT_URI"
+        default="http://localhost:8000/api/v1/auth/google/callback", env="GOOGLE_REDIRECT_URI"
     )
 
     # Frontend URL for redirects after OAuth
-    FRONTEND_URL: str = Field(
-        default="http://localhost:5173",
-        env="FRONTEND_URL"
-    )
+    FRONTEND_URL: str = Field(default="http://localhost:5173", env="FRONTEND_URL")
 
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
@@ -90,34 +82,38 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
     LOG_FORMAT: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LOG_FORMAT"
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT"
     )
 
     # Agentic mode (Item #9) — LangGraph + Groq tool-calling + free NIH/FDA tools
     AGENT_ENABLED: bool = Field(default=False, env="AGENT_ENABLED")
     AGENT_MODEL: str = Field(
-        default="llama-3.3-70b-versatile", env="AGENT_MODEL",
+        default="llama-3.3-70b-versatile",
+        env="AGENT_MODEL",
         description="Groq tool-calling model. 70B handles multi-tool plans far better than 8B.",
     )
     AGENT_MAX_ITERATIONS: int = Field(default=6, env="AGENT_MAX_ITERATIONS")
-    NCBI_API_KEY: Optional[str] = Field(
-        default=None, env="NCBI_API_KEY",
+    NCBI_API_KEY: str | None = Field(
+        default=None,
+        env="NCBI_API_KEY",
         description="Free key from https://www.ncbi.nlm.nih.gov/account/ — raises PubMed rate limit 3→10 req/s",
     )
 
     # Safety / hallucination guard (Item #6) — all free
     SAFETY_ENABLED: bool = Field(default=True, env="SAFETY_ENABLED")
     SAFETY_MIN_FAITHFULNESS: float = Field(
-        default=0.6, env="SAFETY_MIN_FAITHFULNESS",
+        default=0.6,
+        env="SAFETY_MIN_FAITHFULNESS",
         description="Below this score we annotate the response with a low-confidence banner.",
     )
     SAFETY_REQUIRE_MULTI_EVIDENCE: bool = Field(
-        default=False, env="SAFETY_REQUIRE_MULTI_EVIDENCE",
+        default=False,
+        env="SAFETY_REQUIRE_MULTI_EVIDENCE",
         description="MEGA-RAG-style: require ≥2 retrieved chunks supporting a claim.",
     )
     SAFETY_VALIDATE_DRUG_NAMES: bool = Field(
-        default=True, env="SAFETY_VALIDATE_DRUG_NAMES",
+        default=True,
+        env="SAFETY_VALIDATE_DRUG_NAMES",
         description="Check drug names mentioned in answers against RxNorm.",
     )
 
@@ -127,7 +123,7 @@ class Settings(BaseSettings):
     RERANKER_PROVIDER: str = Field(default="none", env="RERANKER_PROVIDER")
     RERANKER_TOP_K: int = Field(default=5, env="RERANKER_TOP_K")
     RERANKER_FETCH_K: int = Field(default=20, env="RERANKER_FETCH_K")
-    JINA_API_KEY: Optional[str] = Field(default=None, env="JINA_API_KEY")
+    JINA_API_KEY: str | None = Field(default=None, env="JINA_API_KEY")
     JINA_RERANKER_MODEL: str = Field(
         default="jina-reranker-v2-base-multilingual",
         env="JINA_RERANKER_MODEL",
@@ -138,19 +134,15 @@ class Settings(BaseSettings):
     # Cloud Hobby: 50k observations/mo. Self-hosted: no caps.
     # Off-by-default — set LANGFUSE_ENABLED=true plus the keys in .env to activate.
     LANGFUSE_ENABLED: bool = Field(default=False, env="LANGFUSE_ENABLED")
-    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(default=None, env="LANGFUSE_PUBLIC_KEY")
-    LANGFUSE_SECRET_KEY: Optional[str] = Field(default=None, env="LANGFUSE_SECRET_KEY")
-    LANGFUSE_HOST: str = Field(
-        default="https://us.cloud.langfuse.com", env="LANGFUSE_HOST"
-    )
+    LANGFUSE_PUBLIC_KEY: str | None = Field(default=None, env="LANGFUSE_PUBLIC_KEY")
+    LANGFUSE_SECRET_KEY: str | None = Field(default=None, env="LANGFUSE_SECRET_KEY")
+    LANGFUSE_HOST: str = Field(default="https://us.cloud.langfuse.com", env="LANGFUSE_HOST")
 
     # Evaluation (RAGAS) — free-tier only
     # RAGAS uses LLM-as-judge; we route it through Groq (free tier) instead of OpenAI.
     # The judge LLM is intentionally larger than the production LLM
     # (llama-3.1-8b-instant) so the judge can fairly grade the smaller model's output.
-    RAGAS_LLM_MODEL: str = Field(
-        default="llama-3.3-70b-versatile", env="RAGAS_LLM_MODEL"
-    )
+    RAGAS_LLM_MODEL: str = Field(default="llama-3.3-70b-versatile", env="RAGAS_LLM_MODEL")
     # RAGAS embedding judge uses the same local model as production retrieval.
     # Local = no API calls = free.
     RAGAS_EMBEDDING_MODEL: str = Field(
@@ -166,9 +158,7 @@ class Settings(BaseSettings):
     )
     EVAL_RESULTS_DIR: str = Field(default="eval/results", env="EVAL_RESULTS_DIR")
     EVAL_REPORTS_DIR: str = Field(default="eval/reports", env="EVAL_REPORTS_DIR")
-    EVAL_FAITHFULNESS_THRESHOLD: float = Field(
-        default=0.75, env="EVAL_FAITHFULNESS_THRESHOLD"
-    )
+    EVAL_FAITHFULNESS_THRESHOLD: float = Field(default=0.75, env="EVAL_FAITHFULNESS_THRESHOLD")
     EVAL_CONTEXT_PRECISION_THRESHOLD: float = Field(
         default=0.70, env="EVAL_CONTEXT_PRECISION_THRESHOLD"
     )
@@ -216,5 +206,6 @@ class Settings(BaseSettings):
     def allowed_extensions_list(self) -> list[str]:
         """Parse allowed extensions from comma-separated string"""
         return [ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()]
+
 
 settings = Settings()

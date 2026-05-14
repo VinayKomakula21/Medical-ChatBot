@@ -2,16 +2,17 @@
 Security dependencies for FastAPI endpoints
 Provides authentication middleware for protected routes
 """
-from typing import Optional
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
+
 import logging
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.db.models import User
-from app.services.auth import decode_access_token
 from app.repositories.user import user_repository
+from app.services.auth import decode_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Dependency to get the current authenticated user
@@ -73,18 +74,15 @@ async def get_current_user(
     # Check if user is active
     if not user.is_active:
         logger.warning(f"Inactive user attempted access: {user.id}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user account"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user account")
 
     return user
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-    db: AsyncSession = Depends(get_db)
-) -> Optional[User]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
     """
     Dependency to get current user, but doesn't fail if not authenticated
 
@@ -123,9 +121,7 @@ async def get_optional_user(
         return None
 
 
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Dependency that ensures user is active
 
@@ -145,8 +141,5 @@ async def get_current_active_user(
         HTTPException: 403 if user is inactive
     """
     if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
     return current_user

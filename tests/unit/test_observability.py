@@ -5,6 +5,7 @@ span / generation context managers yield silent stubs that accept update()
 and end() without erroring. This is the contract that keeps the rest of the
 app safe to call obs.* unconditionally.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -59,9 +60,7 @@ class TestEnabledWithoutKeys:
     """If observability is 'enabled' but the keys are missing, behave like noop
     (and log a warning — but don't raise)."""
 
-    def test_enabled_without_keys_falls_back_to_noop(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_enabled_without_keys_falls_back_to_noop(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(obs.settings, "LANGFUSE_ENABLED", True)
         monkeypatch.setattr(obs.settings, "LANGFUSE_PUBLIC_KEY", None)
         monkeypatch.setattr(obs.settings, "LANGFUSE_SECRET_KEY", None)

@@ -15,11 +15,13 @@ Free-tier defaults:
   - Cloud Hobby tier: 50k observations/month
   - Self-host fallback: set LANGFUSE_HOST to your self-hosted URL — no event cap.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional
+from typing import Any
 
 from app.core.config import settings
 
@@ -39,9 +41,7 @@ def _get_client() -> Any:
     if not settings.LANGFUSE_ENABLED:
         return None
     if not (settings.LANGFUSE_PUBLIC_KEY and settings.LANGFUSE_SECRET_KEY):
-        logger.warning(
-            "LANGFUSE_ENABLED=true but keys not configured — observability disabled."
-        )
+        logger.warning("LANGFUSE_ENABLED=true but keys not configured — observability disabled.")
         return None
 
     try:
@@ -69,7 +69,7 @@ def _get_client() -> Any:
 # to branch.
 # ---------------------------------------------------------------------------
 class _StubSpan:
-    id: Optional[str] = None
+    id: str | None = None
 
     def update(self, **_: Any) -> None:
         pass
@@ -77,7 +77,7 @@ class _StubSpan:
     def end(self, **_: Any) -> None:
         pass
 
-    def __enter__(self) -> "_StubSpan":
+    def __enter__(self) -> _StubSpan:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -88,7 +88,7 @@ _STUB = _StubSpan()
 
 
 @contextmanager
-def trace(name: str, user_id: Optional[str] = None, metadata: Optional[dict] = None) -> Iterator[Any]:
+def trace(name: str, user_id: str | None = None, metadata: dict | None = None) -> Iterator[Any]:
     """Top-level trace for an end-user request.
 
     Usage:
@@ -114,7 +114,7 @@ def span(
     parent: Any,
     name: str,
     input: Any = None,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
 ) -> Iterator[Any]:
     """Nested span (e.g. retrieval). `parent` is the trace or another span."""
     if parent is _STUB or parent is None or _get_client() is None:
@@ -136,8 +136,8 @@ def generation(
     name: str,
     model: str,
     input: Any = None,
-    model_parameters: Optional[dict] = None,
-    metadata: Optional[dict] = None,
+    model_parameters: dict | None = None,
+    metadata: dict | None = None,
 ) -> Iterator[Any]:
     """LLM generation span — surfaces input/output/usage in the Langfuse UI."""
     if parent is _STUB or parent is None or _get_client() is None:

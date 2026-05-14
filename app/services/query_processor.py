@@ -2,11 +2,13 @@
 Query Processor Service - Handles query analysis and decomposition.
 Breaks complex queries into sub-queries for better retrieval.
 """
+
 import logging
-import re
-from typing import List, Dict, Any, Optional, Tuple
-import requests
 import os
+import re
+from typing import Any
+
+import requests
 
 from app.core.config import settings
 
@@ -40,14 +42,14 @@ class QueryProcessor:
         - Ask about multiple topics
         """
         indicators = [
-            query.count('?') > 1,
-            ' and ' in query.lower(),
-            ' also ' in query.lower(),
-            ' as well as ' in query.lower(),
-            ' plus ' in query.lower(),
+            query.count("?") > 1,
+            " and " in query.lower(),
+            " also " in query.lower(),
+            " as well as " in query.lower(),
+            " plus " in query.lower(),
             len(query.split()) > 15,
-            '; ' in query,  # Semicolon often separates questions
-            ' both ' in query.lower(),
+            "; " in query,  # Semicolon often separates questions
+            " both " in query.lower(),
         ]
 
         # Query is complex if 2+ indicators are true
@@ -69,49 +71,66 @@ class QueryProcessor:
 
         # Emergency indicators
         emergency_keywords = [
-            'emergency', 'urgent', 'immediately', '911',
-            'chest pain', "can't breathe", 'severe bleeding',
-            'heart attack', 'stroke', 'choking'
+            "emergency",
+            "urgent",
+            "immediately",
+            "911",
+            "chest pain",
+            "can't breathe",
+            "severe bleeding",
+            "heart attack",
+            "stroke",
+            "choking",
         ]
         if any(kw in query_lower for kw in emergency_keywords):
-            return 'emergency'
+            return "emergency"
 
         # Symptom queries
         symptom_patterns = [
-            r'symptom', r'sign[s]? of', r'how do i know',
-            r'what does .* feel like', r'is it normal'
+            r"symptom",
+            r"sign[s]? of",
+            r"how do i know",
+            r"what does .* feel like",
+            r"is it normal",
         ]
         if any(re.search(p, query_lower) for p in symptom_patterns):
-            return 'symptom'
+            return "symptom"
 
         # Treatment queries
         treatment_patterns = [
-            r'treat', r'cure', r'remedy', r'medicine',
-            r'medication', r'drug', r'how to get rid',
-            r'what can i take', r'what helps'
+            r"treat",
+            r"cure",
+            r"remedy",
+            r"medicine",
+            r"medication",
+            r"drug",
+            r"how to get rid",
+            r"what can i take",
+            r"what helps",
         ]
         if any(re.search(p, query_lower) for p in treatment_patterns):
-            return 'treatment'
+            return "treatment"
 
         # Diagnosis queries
         diagnosis_patterns = [
-            r'what is', r'what are', r'define',
-            r'explain', r'cause[sd]?', r'why do'
+            r"what is",
+            r"what are",
+            r"define",
+            r"explain",
+            r"cause[sd]?",
+            r"why do",
         ]
         if any(re.search(p, query_lower) for p in diagnosis_patterns):
-            return 'diagnosis'
+            return "diagnosis"
 
         # Prevention queries
-        prevention_patterns = [
-            r'prevent', r'avoid', r'reduce risk',
-            r'protect', r'stop .* from'
-        ]
+        prevention_patterns = [r"prevent", r"avoid", r"reduce risk", r"protect", r"stop .* from"]
         if any(re.search(p, query_lower) for p in prevention_patterns):
-            return 'prevention'
+            return "prevention"
 
-        return 'general'
+        return "general"
 
-    def extract_medical_entities(self, query: str) -> Dict[str, List[str]]:
+    def extract_medical_entities(self, query: str) -> dict[str, list[str]]:
         """
         Extract medical entities from query.
 
@@ -126,9 +145,19 @@ class QueryProcessor:
         # Common medical conditions (simplified list)
         conditions = []
         condition_keywords = [
-            'diabetes', 'hypertension', 'asthma', 'arthritis',
-            'flu', 'cold', 'fever', 'infection', 'allergy',
-            'migraine', 'anxiety', 'depression', 'cancer'
+            "diabetes",
+            "hypertension",
+            "asthma",
+            "arthritis",
+            "flu",
+            "cold",
+            "fever",
+            "infection",
+            "allergy",
+            "migraine",
+            "anxiety",
+            "depression",
+            "cancer",
         ]
         for kw in condition_keywords:
             if kw in query_lower:
@@ -137,9 +166,18 @@ class QueryProcessor:
         # Common symptoms
         symptoms = []
         symptom_keywords = [
-            'pain', 'ache', 'fever', 'cough', 'fatigue',
-            'nausea', 'dizziness', 'swelling', 'rash',
-            'headache', 'sore throat', 'runny nose'
+            "pain",
+            "ache",
+            "fever",
+            "cough",
+            "fatigue",
+            "nausea",
+            "dizziness",
+            "swelling",
+            "rash",
+            "headache",
+            "sore throat",
+            "runny nose",
         ]
         for kw in symptom_keywords:
             if kw in query_lower:
@@ -148,9 +186,20 @@ class QueryProcessor:
         # Body parts
         body_parts = []
         body_part_keywords = [
-            'head', 'chest', 'stomach', 'back', 'neck',
-            'throat', 'knee', 'shoulder', 'arm', 'leg',
-            'heart', 'lung', 'liver', 'kidney'
+            "head",
+            "chest",
+            "stomach",
+            "back",
+            "neck",
+            "throat",
+            "knee",
+            "shoulder",
+            "arm",
+            "leg",
+            "heart",
+            "lung",
+            "liver",
+            "kidney",
         ]
         for kw in body_part_keywords:
             if kw in query_lower:
@@ -159,21 +208,27 @@ class QueryProcessor:
         # Medications
         medications = []
         med_keywords = [
-            'aspirin', 'ibuprofen', 'acetaminophen', 'tylenol',
-            'advil', 'antibiotic', 'insulin', 'vitamin'
+            "aspirin",
+            "ibuprofen",
+            "acetaminophen",
+            "tylenol",
+            "advil",
+            "antibiotic",
+            "insulin",
+            "vitamin",
         ]
         for kw in med_keywords:
             if kw in query_lower:
                 medications.append(kw)
 
         return {
-            'conditions': conditions,
-            'symptoms': symptoms,
-            'body_parts': body_parts,
-            'medications': medications
+            "conditions": conditions,
+            "symptoms": symptoms,
+            "body_parts": body_parts,
+            "medications": medications,
         }
 
-    def decompose_query(self, query: str) -> List[str]:
+    def decompose_query(self, query: str) -> list[str]:
         """
         Decompose a complex query into simpler sub-queries.
 
@@ -196,7 +251,7 @@ class QueryProcessor:
         # If all else fails, return original query
         return [query]
 
-    def _rule_based_decomposition(self, query: str) -> List[str]:
+    def _rule_based_decomposition(self, query: str) -> list[str]:
         """
         Rule-based query decomposition.
 
@@ -208,10 +263,10 @@ class QueryProcessor:
 
         # Split on common separators
         separators = [
-            r'\?\s*(?:and|also|additionally)',  # "? And" or "? Also"
-            r'\.\s*(?:and|also|additionally)',  # ". And" or ". Also"
-            r';\s*',  # Semicolon
-            r'\s+and\s+(?=what|how|why|when|where|can|does|is)',  # "and what/how/etc"
+            r"\?\s*(?:and|also|additionally)",  # "? And" or "? Also"
+            r"\.\s*(?:and|also|additionally)",  # ". And" or ". Also"
+            r";\s*",  # Semicolon
+            r"\s+and\s+(?=what|how|why|when|where|can|does|is)",  # "and what/how/etc"
         ]
 
         for sep in separators:
@@ -221,7 +276,7 @@ class QueryProcessor:
                 sub_queries = [p.strip() for p in parts if p.strip()]
                 # Add question marks if missing
                 sub_queries = [
-                    q + '?' if not q.endswith('?') and not q.endswith('.') else q
+                    q + "?" if not q.endswith("?") and not q.endswith(".") else q
                     for q in sub_queries
                 ]
                 break
@@ -229,20 +284,17 @@ class QueryProcessor:
         # Handle "X and Y" pattern for simple cases
         if not sub_queries:
             match = re.match(
-                r'(?:what (?:are|is)|tell me about|explain)\s+(.+?)\s+and\s+(.+?)(?:\?|$)',
+                r"(?:what (?:are|is)|tell me about|explain)\s+(.+?)\s+and\s+(.+?)(?:\?|$)",
                 query,
-                re.IGNORECASE
+                re.IGNORECASE,
             )
             if match:
                 topic1, topic2 = match.groups()
-                sub_queries = [
-                    f"What is {topic1.strip()}?",
-                    f"What is {topic2.strip()}?"
-                ]
+                sub_queries = [f"What is {topic1.strip()}?", f"What is {topic2.strip()}?"]
 
         return sub_queries
 
-    def _llm_decomposition(self, query: str) -> List[str]:
+    def _llm_decomposition(self, query: str) -> list[str]:
         """
         Use LLM to decompose complex queries.
         """
@@ -261,24 +313,17 @@ Sub-questions:"""
 
             payload = {
                 "model": self.model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
+                "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
                 "max_tokens": 150,
             }
 
             headers = {
                 "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
-            response = requests.post(
-                self.groq_url,
-                headers=headers,
-                json=payload,
-                timeout=5
-            )
+            response = requests.post(self.groq_url, headers=headers, json=payload, timeout=5)
 
             if response.status_code == 200:
                 result = response.json()
@@ -286,14 +331,14 @@ Sub-questions:"""
 
                 # Parse sub-queries from response
                 sub_queries = []
-                for line in content.strip().split('\n'):
+                for line in content.strip().split("\n"):
                     line = line.strip()
                     # Remove common prefixes
-                    line = re.sub(r'^[\d\.\-\*\)]+\s*', '', line)
+                    line = re.sub(r"^[\d\.\-\*\)]+\s*", "", line)
                     if line and len(line) > 5:
                         # Add question mark if missing
-                        if not line.endswith('?'):
-                            line += '?'
+                        if not line.endswith("?"):
+                            line += "?"
                         sub_queries.append(line)
 
                 return sub_queries[:3]  # Limit to 3 sub-queries
@@ -303,7 +348,7 @@ Sub-questions:"""
 
         return []
 
-    def process_query(self, query: str) -> Dict[str, Any]:
+    def process_query(self, query: str) -> dict[str, Any]:
         """
         Full query processing pipeline.
 
@@ -324,11 +369,11 @@ Sub-questions:"""
             sub_queries = self.decompose_query(query)
 
         return {
-            'original_query': query,
-            'is_complex': is_complex,
-            'query_type': query_type,
-            'entities': entities,
-            'sub_queries': sub_queries
+            "original_query": query,
+            "is_complex": is_complex,
+            "query_type": query_type,
+            "entities": entities,
+            "sub_queries": sub_queries,
         }
 
 
@@ -336,12 +381,12 @@ Sub-questions:"""
 query_processor = QueryProcessor()
 
 
-def process_query(query: str) -> Dict[str, Any]:
+def process_query(query: str) -> dict[str, Any]:
     """Convenience function for query processing."""
     return query_processor.process_query(query)
 
 
-def decompose_if_complex(query: str) -> List[str]:
+def decompose_if_complex(query: str) -> list[str]:
     """
     Return sub-queries if query is complex, otherwise return [query].
     """

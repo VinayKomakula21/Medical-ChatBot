@@ -11,6 +11,7 @@ These are designed for CI gating — if a future change drops faithfulness or
 hit@5 below the configured threshold, the test fails loud with the actual
 number so the regression is immediately visible.
 """
+
 from __future__ import annotations
 
 import os

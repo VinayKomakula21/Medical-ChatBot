@@ -3,6 +3,7 @@
 Keeps `ragas_runner.py` and `retrieval_runner.py` independent of each other
 while sharing dataset loading, retrieval, generation, and report formatting.
 """
+
 from __future__ import annotations
 
 import json
@@ -76,7 +77,9 @@ def retrieve_contexts(question: str, k: int = 5) -> list[dict[str, Any]]:
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Active retriever (%s) failed for %r: %s",
-                getattr(_active_retriever, "name", "?"), question[:60], exc,
+                getattr(_active_retriever, "name", "?"),
+                question[:60],
+                exc,
             )
             return []
 
@@ -227,9 +230,7 @@ def write_markdown_report(
         lines.append(header)
         lines.append(sep)
         for cat, metrics in sorted(by_category.items()):
-            row = [cat] + [
-                (f"{metrics[m]:.4f}" if m in metrics else "—") for m in all_metrics
-            ]
+            row = [cat] + [(f"{metrics[m]:.4f}" if m in metrics else "—") for m in all_metrics]
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
 

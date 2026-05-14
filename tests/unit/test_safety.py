@@ -4,6 +4,7 @@ Goal: verify the deterministic safety layers (scope, emergency, faithfulness,
 drug-name extraction) without touching RxNorm. Drug validation is disabled
 via settings so no network calls fire.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -84,9 +85,7 @@ class TestScopeAndEmergency:
         assert verdict.out_of_scope is False
 
     @pytest.mark.asyncio
-    async def test_emergency_keyword_prepends_urgent_banner(
-        self, svc: SafetyService
-    ) -> None:
+    async def test_emergency_keyword_prepends_urgent_banner(self, svc: SafetyService) -> None:
         verdict = await svc.check(
             question="I'm having chest pain right now",
             retrieved_chunks=[],
@@ -112,12 +111,14 @@ class TestScopeAndEmergency:
 class TestFaithfulness:
     @pytest.mark.asyncio
     async def test_high_overlap_yields_high_score(self, svc: SafetyService) -> None:
-        chunks = [{
-            "content": (
-                "Metformin is a first-line treatment for type 2 diabetes mellitus "
-                "and lowers hepatic glucose production."
-            )
-        }]
+        chunks = [
+            {
+                "content": (
+                    "Metformin is a first-line treatment for type 2 diabetes mellitus "
+                    "and lowers hepatic glucose production."
+                )
+            }
+        ]
         answer = "Metformin treats type 2 diabetes by lowering glucose production."
         verdict = await svc.check("How does metformin work?", chunks, answer)
         assert verdict.faithfulness_score is not None

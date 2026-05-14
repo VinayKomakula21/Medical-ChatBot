@@ -2,21 +2,22 @@
 Chat service using Groq API for fast, high-quality responses
 Groq provides extremely fast inference with generous free tier
 """
-import logging
-import time
-import asyncio
-import os
-from typing import Optional, List, Dict, Any, AsyncGenerator
-from uuid import UUID, uuid4
-import httpx
-import json
 
+import asyncio
+import json
+import logging
+import os
+import time
+from collections.abc import AsyncGenerator
+from typing import Any
+from uuid import UUID, uuid4
+
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core import observability as obs
-from app.core.exceptions import LLMException, VectorStoreException
 from app.core.cache import cache
+from app.core.config import settings
 from app.models.chat import ChatRequest, ChatResponse, StreamingChatResponse
 from app.repositories.chat import chat_repository
 from app.services.safety import safety_service
@@ -77,6 +78,7 @@ Provide brief first-aid steps while waiting for help.
 3. **Always include "see a doctor" guidance** for anything beyond basic wellness.
 4. **Be empathetic but efficient** - People want clear answers, not fluff."""
 
+
 class GroqChatService:
     """
     Uses Groq API for fast, high-quality LLM responses
@@ -85,14 +87,13 @@ class GroqChatService:
 
     def __init__(self):
         # Groq API configuration
-        from app.core.config import settings
         self.api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
         self.model = "llama-3.1-8b-instant"  # Faster model for quick responses - Alternative: "mixtral-8x7b-32768"
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         self._last_request_time = 0
@@ -131,7 +132,16 @@ class GroqChatService:
                 await self._wait_for_rate_limit()
 
                 # Analyze urgency of the question
-                urgent_keywords = ['chest pain', 'can\'t breathe', 'bleeding', 'emergency', 'severe pain', 'heart attack', 'stroke', 'choking']
+                urgent_keywords = [
+                    "chest pain",
+                    "can't breathe",
+                    "bleeding",
+                    "emergency",
+                    "severe pain",
+                    "heart attack",
+                    "stroke",
+                    "choking",
+                ]
                 is_urgent = any(keyword in prompt.lower() for keyword in urgent_keywords)
 
                 # Build user content with context
@@ -139,11 +149,15 @@ class GroqChatService:
 
                 # Add conversation history for follow-ups
                 if conversation_history and conversation_history.strip():
-                    user_content_parts.append(f"**Previous conversation:**\n{conversation_history}\n")
+                    user_content_parts.append(
+                        f"**Previous conversation:**\n{conversation_history}\n"
+                    )
 
                 # Add retrieved medical documents
                 if context and context.strip():
-                    user_content_parts.append(f"**Retrieved medical information:**\n{context[:800]}\n")
+                    user_content_parts.append(
+                        f"**Retrieved medical information:**\n{context[:800]}\n"
+                    )
 
                 # Add the current question
                 if is_urgent:
@@ -155,7 +169,7 @@ class GroqChatService:
 
                 messages = [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content}
+                    {"role": "user", "content": user_content},
                 ]
 
                 payload = {
@@ -164,7 +178,7 @@ class GroqChatService:
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                     "top_p": 0.9,
-                    "stream": False
+                    "stream": False,
                 }
 
                 with obs.generation(
@@ -203,7 +217,9 @@ class GroqChatService:
                     if response.status_code == 429:
                         # Rate limit exceeded - retry
                         gen.update(metadata={"http_status": 429})
-                        logger.warning(f"Groq rate limit exceeded, attempt {attempt + 1}/{max_retries}")
+                        logger.warning(
+                            f"Groq rate limit exceeded, attempt {attempt + 1}/{max_retries}"
+                        )
                         if attempt < max_retries - 1:
                             await asyncio.sleep(retry_delay)
                             continue
@@ -240,14 +256,10 @@ class GroqChatService:
         else:
             return "⚠️ **AI Service Temporarily Unavailable**\n\nI apologize for the inconvenience. The AI assistant is currently experiencing issues.\n\n**What you can do:**\n\n- Try asking your question again in a moment\n- Upload medical documents for context\n- Consult a healthcare professional for urgent medical advice\n\nThank you for your patience! 🏥"
 
-    async def generate_response(
-        self,
-        request: ChatRequest,
-        db: AsyncSession
-    ) -> ChatResponse:
+    async def generate_response(self, request: ChatRequest, db: AsyncSession) -> ChatResponse:
         start_time = time.time()
         conversation_id = request.conversation_id or uuid4()
-        trace_id_str: Optional[str] = None
+        trace_id_str: str | None = None
 
         with obs.trace(
             name="chat.message",
@@ -286,10 +298,7 @@ class GroqChatService:
 
                 # Store user message in conversation history (now with db session)
                 await chat_repository.add_message(
-                    db=db,
-                    conversation_id=conversation_id,
-                    role="user",
-                    content=request.message
+                    db=db, conversation_id=conversation_id, role="user", content=request.message
                 )
 
                 # Get conversation context if this is a continuing conversation
@@ -298,7 +307,7 @@ class GroqChatService:
                     conversation_context = await chat_repository.get_conversation_context(
                         db=db,
                         conversation_id=conversation_id,
-                        max_messages=6  # Last 3 exchanges
+                        max_messages=6,  # Last 3 exchanges
                     )
 
                 # Search for relevant documents - only for complex queries
@@ -306,11 +315,16 @@ class GroqChatService:
                 context = ""
 
                 # Skip document search for very simple queries to improve speed
-                simple_queries = ['hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay']
-                is_simple_query = request.message.lower().strip() in simple_queries or len(request.message.split()) <= 3
+                simple_queries = ["hi", "hello", "hey", "thanks", "thank you", "ok", "okay"]
+                is_simple_query = (
+                    request.message.lower().strip() in simple_queries
+                    or len(request.message.split()) <= 3
+                )
 
                 if not is_simple_query:
-                    with obs.span(trace, name="retrieval", input={"query": request.message}) as ret_span:
+                    with obs.span(
+                        trace, name="retrieval", input={"query": request.message}
+                    ) as ret_span:
                         try:
                             from app.services.hybrid_search import hybrid_search_service
                             from app.services.query_processor import query_processor
@@ -334,7 +348,7 @@ class GroqChatService:
                                     trace=ret_span,
                                 )
                                 for result in search_results:
-                                    result_id = result.get('id', result.get('content', '')[:50])
+                                    result_id = result.get("id", result.get("content", "")[:50])
                                     if result_id not in seen_ids:
                                         all_results.append(result)
                                         seen_ids.add(result_id)
@@ -348,14 +362,18 @@ class GroqChatService:
                                 context_parts = []
 
                                 for i, result in enumerate(all_results[:5]):
-                                    ref = f"[{i+1}]"
-                                    sources.append({
-                                        "ref": ref,
-                                        "content": result["content"][:200],
-                                        "metadata": result.get("metadata", {}),
-                                        "score": result.get("score", 0.0),
-                                        "filename": result.get("metadata", {}).get("filename", "Unknown")
-                                    })
+                                    ref = f"[{i + 1}]"
+                                    sources.append(
+                                        {
+                                            "ref": ref,
+                                            "content": result["content"][:200],
+                                            "metadata": result.get("metadata", {}),
+                                            "score": result.get("score", 0.0),
+                                            "filename": result.get("metadata", {}).get(
+                                                "filename", "Unknown"
+                                            ),
+                                        }
+                                    )
                                     context_parts.append(f"{ref} {result['content'][:400]}")
 
                                 context = "\n\n".join(context_parts[:3])  # Use top 3 for context
@@ -366,7 +384,9 @@ class GroqChatService:
                                     output={
                                         "n_sub_queries": len(sub_queries),
                                         "n_results": len(all_results),
-                                        "top_score": all_results[0].get("score") if all_results else None,
+                                        "top_score": all_results[0].get("score")
+                                        if all_results
+                                        else None,
                                     }
                                 )
                             except Exception:  # noqa: BLE001
@@ -407,9 +427,7 @@ class GroqChatService:
                 # response with banners; doesn't block.
                 try:
                     # Build retrieved_chunks shape SafetyService expects.
-                    chunks_for_safety = [
-                        {"content": s.get("content", "")} for s in sources
-                    ]
+                    chunks_for_safety = [{"content": s.get("content", "")} for s in sources]
                     verdict = await safety_service.check(
                         question=request.message,
                         retrieved_chunks=chunks_for_safety,
@@ -417,12 +435,14 @@ class GroqChatService:
                     )
                     response_text = verdict.annotated_answer
                     try:
-                        trace.update(metadata={
-                            "safety.out_of_scope": verdict.out_of_scope,
-                            "safety.is_emergency": verdict.is_emergency,
-                            "safety.faithfulness": verdict.faithfulness_score,
-                            "safety.unverified_drugs": verdict.unverified_drugs,
-                        })
+                        trace.update(
+                            metadata={
+                                "safety.out_of_scope": verdict.out_of_scope,
+                                "safety.is_emergency": verdict.is_emergency,
+                                "safety.faithfulness": verdict.faithfulness_score,
+                                "safety.unverified_drugs": verdict.unverified_drugs,
+                            }
+                        )
                     except Exception:  # noqa: BLE001
                         pass
                 except Exception as safety_exc:  # noqa: BLE001
@@ -431,27 +451,28 @@ class GroqChatService:
 
                 # Store assistant's response in conversation history (now with db session)
                 await chat_repository.add_message(
-                    db=db,
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=response_text
+                    db=db, conversation_id=conversation_id, role="assistant", content=response_text
                 )
 
                 # Add brief disclaimer if not already present
-                if "consult" not in response_text.lower() and "healthcare professional" not in response_text.lower():
+                if (
+                    "consult" not in response_text.lower()
+                    and "healthcare professional" not in response_text.lower()
+                ):
                     response_text += "\n\n💡 **Note:** For personalized medical advice, please consult a healthcare professional."
 
                 processing_time = time.time() - start_time
 
                 # Cache response for simple queries (non-conversation)
                 if cache_key:
-                    cache.set(cache_key, {
-                        "message": response_text,
-                        "sources": sources
-                    }, ttl=600)  # Cache for 10 minutes
+                    cache.set(
+                        cache_key, {"message": response_text, "sources": sources}, ttl=600
+                    )  # Cache for 10 minutes
 
                 try:
-                    trace.update(output={"response": response_text[:500], "n_sources": len(sources)})
+                    trace.update(
+                        output={"response": response_text[:500], "n_sources": len(sources)}
+                    )
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -474,9 +495,7 @@ class GroqChatService:
                 )
 
     async def generate_streaming_response(
-        self,
-        request: ChatRequest,
-        db: AsyncSession
+        self, request: ChatRequest, db: AsyncSession
     ) -> AsyncGenerator[StreamingChatResponse, None]:
         """Stream tokens from Groq in real time via SSE.
 
@@ -515,16 +534,18 @@ class GroqChatService:
                     )
 
                 # 3. Retrieve context (skip for trivial messages)
-                simple_queries = ['hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay']
+                simple_queries = ["hi", "hello", "hey", "thanks", "thank you", "ok", "okay"]
                 is_simple = (
                     request.message.lower().strip() in simple_queries
                     or len(request.message.split()) <= 3
                 )
 
-                sources: List[Dict[str, Any]] = []
+                sources: list[dict[str, Any]] = []
                 context = ""
                 if not is_simple:
-                    with obs.span(trace, name="retrieval", input={"query": request.message}) as ret_span:
+                    with obs.span(
+                        trace, name="retrieval", input={"query": request.message}
+                    ) as ret_span:
                         try:
                             from app.services.hybrid_search import hybrid_search_service
                             from app.services.query_processor import query_processor
@@ -536,8 +557,10 @@ class GroqChatService:
                             all_results = []
                             seen_ids = set()
                             for sq in sub_queries:
-                                for r in hybrid_search_service.search(query=sq, top_k=5, trace=ret_span):
-                                    rid = r.get('id', r.get('content', '')[:50])
+                                for r in hybrid_search_service.search(
+                                    query=sq, top_k=5, trace=ret_span
+                                ):
+                                    rid = r.get("id", r.get("content", "")[:50])
                                     if rid not in seen_ids:
                                         all_results.append(r)
                                         seen_ids.add(rid)
@@ -546,14 +569,18 @@ class GroqChatService:
                             if all_results:
                                 ctx_parts = []
                                 for i, r in enumerate(all_results):
-                                    ref = f"[{i+1}]"
-                                    sources.append({
-                                        "ref": ref,
-                                        "content": r["content"][:200],
-                                        "metadata": r.get("metadata", {}),
-                                        "score": r.get("score", 0.0),
-                                        "filename": r.get("metadata", {}).get("filename", "Unknown"),
-                                    })
+                                    ref = f"[{i + 1}]"
+                                    sources.append(
+                                        {
+                                            "ref": ref,
+                                            "content": r["content"][:200],
+                                            "metadata": r.get("metadata", {}),
+                                            "score": r.get("score", 0.0),
+                                            "filename": r.get("metadata", {}).get(
+                                                "filename", "Unknown"
+                                            ),
+                                        }
+                                    )
                                     ctx_parts.append(f"{ref} {r['content'][:400]}")
                                 context = "\n\n".join(ctx_parts[:3])
 
@@ -566,16 +593,26 @@ class GroqChatService:
 
                 # 4. Build messages identically to _generate_with_groq
                 urgent_keywords = [
-                    'chest pain', "can't breathe", 'bleeding', 'emergency',
-                    'severe pain', 'heart attack', 'stroke', 'choking',
+                    "chest pain",
+                    "can't breathe",
+                    "bleeding",
+                    "emergency",
+                    "severe pain",
+                    "heart attack",
+                    "stroke",
+                    "choking",
                 ]
                 is_urgent = any(k in request.message.lower() for k in urgent_keywords)
 
                 user_content_parts = []
                 if conversation_context and conversation_context.strip():
-                    user_content_parts.append(f"**Previous conversation:**\n{conversation_context}\n")
+                    user_content_parts.append(
+                        f"**Previous conversation:**\n{conversation_context}\n"
+                    )
                 if context and context.strip():
-                    user_content_parts.append(f"**Retrieved medical information:**\n{context[:800]}\n")
+                    user_content_parts.append(
+                        f"**Retrieved medical information:**\n{context[:800]}\n"
+                    )
                 if is_urgent:
                     user_content_parts.append(f"🚨 **URGENT QUESTION:** {request.message}")
                 else:
@@ -599,7 +636,7 @@ class GroqChatService:
                 }
 
                 # 5. Stream from Groq SSE; emit each token delta as it arrives.
-                full_text_parts: List[str] = []
+                full_text_parts: list[str] = []
                 with obs.generation(
                     trace,
                     name="groq.chat_completion.stream",
@@ -617,7 +654,9 @@ class GroqChatService:
                         fb = self._fallback_response(request.message, context)
                         full_text_parts.append(fb)
                         yield StreamingChatResponse(
-                            chunk=fb, conversation_id=conversation_id, is_final=False,
+                            chunk=fb,
+                            conversation_id=conversation_id,
+                            is_final=False,
                         )
                     else:
                         try:
@@ -632,7 +671,8 @@ class GroqChatService:
                                         err = await resp.aread()
                                         logger.error(
                                             "Groq stream %d: %s",
-                                            resp.status_code, err[:300],
+                                            resp.status_code,
+                                            err[:300],
                                         )
                                         fb = self._fallback_response(request.message, context)
                                         full_text_parts.append(fb)
@@ -650,7 +690,9 @@ class GroqChatService:
                                                 break
                                             try:
                                                 obj = json.loads(data)
-                                                delta = obj["choices"][0]["delta"].get("content", "")
+                                                delta = obj["choices"][0]["delta"].get(
+                                                    "content", ""
+                                                )
                                             except (json.JSONDecodeError, KeyError, IndexError):
                                                 continue
                                             if not delta:
@@ -712,10 +754,12 @@ class GroqChatService:
                     )
 
                 try:
-                    trace.update(output={
-                        "response_length": len(final_text),
-                        "n_sources": len(sources),
-                    })
+                    trace.update(
+                        output={
+                            "response_length": len(final_text),
+                            "n_sources": len(sources),
+                        }
+                    )
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -729,26 +773,20 @@ class GroqChatService:
                 )
 
     async def get_conversation_history(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID
-    ) -> List[Dict[str, Any]]:
+        self, db: AsyncSession, conversation_id: UUID
+    ) -> list[dict[str, Any]]:
         """Get conversation history from repository."""
         messages = await chat_repository.get_messages(db, conversation_id)
         return [
             {
                 "role": msg.role,
                 "content": msg.content,
-                "timestamp": msg.created_at.isoformat() if msg.created_at else ""
+                "timestamp": msg.created_at.isoformat() if msg.created_at else "",
             }
             for msg in messages
         ]
 
-    async def clear_conversation(
-        self,
-        db: AsyncSession,
-        conversation_id: UUID
-    ) -> bool:
+    async def clear_conversation(self, db: AsyncSession, conversation_id: UUID) -> bool:
         """Clear conversation history."""
         return await chat_repository.clear_messages(db, conversation_id)
 

@@ -4,6 +4,7 @@ Pure deterministic logic — no external services, no mocks.
 Verifies the heuristics that drive query decomposition and routing decisions
 upstream (chat_groq, agent prompt construction).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -35,9 +36,7 @@ class TestIsComplexQuery:
         )
         assert qp.is_complex_query(q) is True
 
-    def test_multiple_question_marks_with_and_is_complex(
-        self, qp: QueryProcessor
-    ) -> None:
+    def test_multiple_question_marks_with_and_is_complex(self, qp: QueryProcessor) -> None:
         q = "What is metformin? And what are its side effects?"
         assert qp.is_complex_query(q) is True
 
@@ -94,9 +93,7 @@ class TestExtractMedicalEntities:
         out = qp.extract_medical_entities("")
         assert set(out.keys()) == {"conditions", "symptoms", "body_parts", "medications"}
 
-    def test_extracts_condition_and_symptom_and_body_part(
-        self, qp: QueryProcessor
-    ) -> None:
+    def test_extracts_condition_and_symptom_and_body_part(self, qp: QueryProcessor) -> None:
         out = qp.extract_medical_entities("My head hurts from a flu fever")
         assert "flu" in out["conditions"]
         assert "fever" in out["symptoms"]

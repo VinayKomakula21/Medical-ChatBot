@@ -2,15 +2,17 @@
 SQLAlchemy database models for Medical ChatBot
 Defines the database schema for users, conversations, messages, and documents
 """
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean, Float
-from sqlalchemy.orm import relationship, DeclarativeBase
-from sqlalchemy.sql import func
+
 import uuid
+
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy.sql import func
 
 
 class Base(DeclarativeBase):
     """Base class for all database models"""
+
     pass
 
 
@@ -21,6 +23,7 @@ class User(Base):
     Each user can have multiple conversations and documents.
     Supports OAuth authentication (Google) via google_id field.
     """
+
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -37,7 +40,9 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships - a user can have many conversations and documents
-    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+    conversations = relationship(
+        "Conversation", back_populates="user", cascade="all, delete-orphan"
+    )
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -51,10 +56,13 @@ class Conversation(Base):
     Each conversation belongs to one user and contains multiple messages.
     Automatically deleted when the user is deleted (cascade).
     """
+
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # Nullable for anonymous users
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )  # Nullable for anonymous users
     title = Column(String, nullable=True)  # Optional conversation title
 
     # Timestamps
@@ -76,10 +84,13 @@ class Message(Base):
     Stores both user questions and AI assistant responses.
     Role can be 'user' or 'assistant'.
     """
+
     __tablename__ = "messages"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    conversation_id = Column(String, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversation_id = Column(
+        String, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     role = Column(String, nullable=False)  # "user" or "assistant"
     content = Column(Text, nullable=False)  # Message text
 
@@ -100,6 +111,7 @@ class Document(Base):
     Actual file content is stored on disk and in Pinecone vector database.
     This table tracks file info, ownership, and Pinecone vector IDs.
     """
+
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

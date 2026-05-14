@@ -1,22 +1,22 @@
+import logging
+import time
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import time
-import logging
+from slowapi.util import get_remote_address
 
-from app.core.config import settings
-from app.core.logging import setup_logging
-from app.core.exceptions import BaseAPIException
 from app.api.v1.api import api_router
+from app.core.config import settings
+from app.core.exceptions import BaseAPIException
+from app.core.logging import setup_logging
+from app.db.database import close_db, init_db
 from app.db.pinecone import init_pinecone
-from app.db.database import init_db, close_db
 
 # Setup logging
 setup_logging()
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,13 +57,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error closing database: {e}")
 
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add rate limiter to app state
@@ -88,6 +90,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 #         allowed_hosts=["*.yourdomain.com", "yourdomain.com"]
 #     )
 
+
 # Add request ID middleware
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
@@ -96,6 +99,7 @@ async def add_request_id(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
+
 
 # Add logging middleware
 @app.middleware("http")
@@ -113,25 +117,24 @@ async def log_requests(request: Request, call_next):
                 "path": request.url.path,
                 "status_code": response.status_code,
                 "process_time": process_time,
-                "client_host": request.client.host if request.client else None
+                "client_host": request.client.host if request.client else None,
             }
-        }
+        },
     )
 
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
 
 # Global exception handler
 @app.exception_handler(BaseAPIException)
 async def api_exception_handler(request: Request, exc: BaseAPIException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "request_id": getattr(request.state, "request_id", None)
-        },
-        headers=exc.headers
+        content={"error": exc.detail, "request_id": getattr(request.state, "request_id", None)},
+        headers=exc.headers,
     )
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -140,17 +143,20 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "error": "Internal server error",
-            "request_id": getattr(request.state, "request_id", None)
-        }
+            "request_id": getattr(request.state, "request_id", None),
+        },
     )
 
+
 # Mount static files (only if frontend directory exists)
-import os
+import os  # noqa: E402 -- intentional local import; mount is conditional on filesystem
+
 if os.path.exists("frontend"):
     app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 # Root endpoint
 @app.get("/")
@@ -158,8 +164,9 @@ async def root():
     return {
         "message": "Medical ChatBot API",
         "version": settings.VERSION,
-        "docs": f"{settings.API_V1_STR}/docs"
+        "docs": f"{settings.API_V1_STR}/docs",
     }
+
 
 # Health check endpoint
 @app.get("/health")
