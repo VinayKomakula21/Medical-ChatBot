@@ -12,7 +12,9 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+# langchain 0.3 split text-splitters into its own package; the old import
+# still exists as a shim but emits deprecation warnings.
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fastapi import UploadFile, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 

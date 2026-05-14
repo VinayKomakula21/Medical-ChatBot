@@ -9,7 +9,10 @@ from collections import defaultdict
 
 from rank_bm25 import BM25Okapi
 
+from app.core import observability as obs
+from app.core.config import settings
 from app.db.pinecone import search_similar_documents
+from app.services.reranker import get_reranker
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +161,8 @@ class HybridSearchService:
         query: str,
         top_k: int = 10,
         vector_weight: float = 0.5,
-        filter: Optional[Dict[str, Any]] = None
+        filter: Optional[Dict[str, Any]] = None,
+        trace: Any = None,
     ) -> List[Dict[str, Any]]:
         """
         Perform hybrid search combining vector and BM25 results.
@@ -168,55 +172,95 @@ class HybridSearchService:
             top_k: Number of results to return
             vector_weight: Weight for vector results (0-1, unused in RRF but kept for API)
             filter: Optional filter dict for vector search
+            trace: optional Langfuse trace/span to nest retrieval under
 
         Returns:
             List of search results with fused scores
         """
-        # Get vector search results (fetch more for fusion)
-        vector_k = min(top_k * 3, 50)
+        with obs.span(
+            trace,
+            name="hybrid_search",
+            input={"query": query, "top_k": top_k},
+        ) as ret_span:
+            # If a reranker is configured we over-fetch from the retrieval
+            # stage so the reranker has a richer pool to choose from. Falls
+            # back to top_k * 3 when no reranker.
+            reranker = get_reranker()
+            wants_rerank = reranker.name != "noop"
+            fetch_k = settings.RERANKER_FETCH_K if wants_rerank else top_k * 3
+            vector_k = min(fetch_k, 50)
 
-        try:
-            vector_results = search_similar_documents(
-                query=query,
-                k=vector_k,
-                filter=filter
+            try:
+                vector_results = search_similar_documents(
+                    query=query,
+                    k=vector_k,
+                    filter=filter
+                )
+            except Exception as e:
+                logger.warning(f"Vector search failed, falling back to BM25: {e}")
+                vector_results = []
+
+            # Get BM25 results
+            bm25_results = self._bm25_search(query, top_k=vector_k)
+
+            def _finalize(candidates: List[Dict[str, Any]], path: str) -> List[Dict[str, Any]]:
+                """Rerank (if configured) then slice to top_k. Records path on span."""
+                if wants_rerank and candidates:
+                    with obs.span(
+                        ret_span,
+                        name=f"rerank.{reranker.name}",
+                        input={"n_candidates": len(candidates), "top_k": top_k},
+                    ) as rerank_span:
+                        ranked = reranker.rerank(query, candidates, top_k=top_k)
+                        try:
+                            rerank_span.update(output={"n_returned": len(ranked)})
+                        except Exception:  # noqa: BLE001
+                            pass
+                        out = ranked
+                else:
+                    out = candidates[:top_k]
+                try:
+                    ret_span.update(output={"path": path, "n_results": len(out)})
+                except Exception:  # noqa: BLE001
+                    pass
+                return out
+
+            # If no BM25 index, return vector results only (reranked)
+            if not bm25_results:
+                logger.debug("No BM25 results, returning vector results only")
+                return _finalize(vector_results, path="vector_only")
+
+            # If no vector results, convert BM25 to standard format (reranked)
+            if not vector_results:
+                logger.debug("No vector results, returning BM25 results only")
+                results: List[Dict[str, Any]] = []
+                for doc_idx, score in bm25_results[:vector_k]:
+                    if doc_idx < len(self.documents):
+                        doc = self.documents[doc_idx]
+                        results.append({
+                            'id': doc.get('id', f"bm25_{doc_idx}"),
+                            'content': doc.get('content', ''),
+                            'metadata': doc.get('metadata', {}),
+                            'score': score,
+                            'source': 'bm25'
+                        })
+                return _finalize(results, path="bm25_only")
+
+            # Merge using RRF, then rerank top fetch_k → top_k
+            fused_results = self._reciprocal_rank_fusion(
+                vector_results,
+                bm25_results,
+                k=self._rrf_k
             )
-        except Exception as e:
-            logger.warning(f"Vector search failed, falling back to BM25: {e}")
-            vector_results = []
-
-        # Get BM25 results
-        bm25_results = self._bm25_search(query, top_k=vector_k)
-
-        # If no BM25 index, return vector results only
-        if not bm25_results:
-            logger.debug("No BM25 results, returning vector results only")
-            return vector_results[:top_k]
-
-        # If no vector results, convert BM25 to standard format
-        if not vector_results:
-            logger.debug("No vector results, returning BM25 results only")
-            results = []
-            for doc_idx, score in bm25_results[:top_k]:
-                if doc_idx < len(self.documents):
-                    doc = self.documents[doc_idx]
-                    results.append({
-                        'id': doc.get('id', f"bm25_{doc_idx}"),
-                        'content': doc.get('content', ''),
-                        'metadata': doc.get('metadata', {}),
-                        'score': score,
-                        'source': 'bm25'
-                    })
-            return results
-
-        # Merge using RRF
-        fused_results = self._reciprocal_rank_fusion(
-            vector_results,
-            bm25_results,
-            k=self._rrf_k
-        )
-
-        return fused_results[:top_k]
+            try:
+                ret_span.update(metadata={
+                    "n_vector": len(vector_results),
+                    "n_bm25": len(bm25_results),
+                    "n_fused": len(fused_results),
+                })
+            except Exception:  # noqa: BLE001
+                pass
+            return _finalize(fused_results, path="hybrid_rrf")
 
     def search_with_expansion(
         self,
