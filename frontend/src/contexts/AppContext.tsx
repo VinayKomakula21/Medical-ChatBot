@@ -115,6 +115,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         removeNotification(id);
       }, newNotification.duration);
     }
+    // removeNotification is declared just below; both useCallbacks have empty deps by design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const removeNotification = useCallback((id: string) => {

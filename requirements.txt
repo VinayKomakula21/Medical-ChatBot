@@ -4,9 +4,9 @@ uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 slowapi==0.1.9
 
-# Pydantic for validation
-pydantic[email]==2.5.3
-pydantic-settings==2.1.0
+# Pydantic for validation — bumped to >=2.7.4 to satisfy langchain 0.3 / RAGAS 0.2
+pydantic[email]>=2.7.4,<3.0
+pydantic-settings>=2.5.0,<3.0
 
 # LangChain and AI — bumped to 0.3.x to unblock LangGraph (Item #9) and RAGAS 0.2
 langchain>=0.3,<0.4

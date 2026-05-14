@@ -68,6 +68,8 @@ export function DocumentList({ open, onOpenChange }: DocumentListProps) {
     if (open) {
       fetchDocuments();
     }
+    // fetchDocuments is a stable in-component fn; adding it would re-trigger on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, page]);
 
   const fetchDocuments = async () => {

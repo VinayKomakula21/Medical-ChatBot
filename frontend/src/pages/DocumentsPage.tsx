@@ -69,6 +69,8 @@ export function DocumentsPage() {
 
   useEffect(() => {
     fetchDocuments();
+    // fetchDocuments is a stable in-component fn; adding it would re-trigger on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const fetchDocuments = async () => {
