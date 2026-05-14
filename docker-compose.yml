@@ -32,7 +32,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
       postgres:
@@ -41,6 +41,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://medibot:medibot@postgres:5432/medibot
+      PORT: "8000"  # override the Dockerfile default of 7860 (HF convention)
     ports:
       - "8000:8000"
     volumes:

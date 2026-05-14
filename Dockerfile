@@ -1,6 +1,10 @@
 # Backend image — FastAPI + Uvicorn.
 # Multi-stage so the runtime image doesn't carry build toolchain.
 # Final image target: ~250 MB (sentence-transformers + torch are the bulk).
+#
+# Port: binds to $PORT, default 7860 to match Hugging Face Spaces convention.
+# Local compose sets PORT=8000. Render / Cloud Run / Fly inject their own
+# $PORT — all work unmodified.
 
 FROM python:3.11-slim AS build
 
@@ -44,7 +48,8 @@ COPY pyproject.toml ./
 # Uploads dir for runtime document upload feature.
 RUN mkdir -p uploads
 
-EXPOSE 8000
+ENV PORT=7860
+EXPOSE 7860
 
-# Sensible defaults. Tune workers in compose if needed.
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT is expanded at container start. Tune workers in compose.
+CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}
