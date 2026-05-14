@@ -4,7 +4,8 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends, Query, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -32,6 +33,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def send_message(
     request: ChatRequest,
     req: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db)
 ) -> ChatResponse:
     try:
@@ -41,8 +43,10 @@ async def send_message(
                 "For streaming responses, use the WebSocket endpoint at /ws"
             )
 
-        response = await chat_service.generate_response(request, db)
-        return response
+        result = await chat_service.generate_response(request, db)
+        if result.trace_id:
+            response.headers["X-Trace-Id"] = result.trace_id
+        return result
 
     except LLMException as e:
         logger.error(f"LLM error: {e}")
@@ -50,6 +54,44 @@ async def send_message(
     except Exception as e:
         logger.error(f"Unexpected error in chat endpoint: {e}")
         raise InternalServerException(str(e))
+
+
+@router.post("/stream")
+async def stream_message(
+    request: ChatRequest,
+    req: Request,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Server-Sent Events stream of the assistant response.
+
+    Each event is a JSON-encoded StreamingChatResponse on a `data:` line, per
+    the SSE spec. The stream ends with `data: [DONE]`. Clients can consume
+    this with EventSource or fetch + ReadableStream.
+    """
+    async def event_stream():
+        try:
+            async for chunk in chat_service.generate_streaming_response(request, db):
+                payload = chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else chunk.dict()
+                if payload.get("conversation_id") is not None:
+                    payload["conversation_id"] = str(payload["conversation_id"])
+                yield f"data: {json.dumps(payload)}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            logger.error("SSE stream error: %s", exc)
+            err = {"chunk": "Error generating response.", "is_final": True, "sources": []}
+            yield f"data: {json.dumps(err)}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering when proxied
+            "Connection": "keep-alive",
+        },
+    )
+
 
 @router.get("/history/{conversation_id}")
 async def get_conversation_history(

@@ -71,6 +71,7 @@ class ChatResponse(BaseModel):
     sources: List[Dict[str, Any]] = Field(default_factory=list, description="Source documents")
     tokens_used: Optional[int] = Field(default=None, description="Tokens used in generation")
     processing_time: Optional[float] = Field(default=None, description="Processing time in seconds")
+    trace_id: Optional[str] = Field(default=None, description="Langfuse trace id for this request (when observability enabled)")
 
     class Config:
         json_schema_extra = {
