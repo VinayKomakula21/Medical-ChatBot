@@ -102,3 +102,4 @@ eval/.chroma/
 # Portfolio (personal use only)
 PORTFOLIO.md
 frontend/.env.example
+docs/deploy.md
