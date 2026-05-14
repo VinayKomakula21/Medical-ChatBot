@@ -7,8 +7,7 @@ A production-style medical chatbot built around **evaluation, observability, and
 ![React](https://img.shields.io/badge/React-19-61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB)
-<!-- Auto-updated by .github/workflows/eval-nightly.yml -->
-![RAG faithfulness](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/VinayKomakula21/Medical-ChatBot/gh-pages/badge.json)
+<!-- The faithfulness badge is populated by .github/workflows/eval-nightly.yml after the first nightly run lands on gh-pages. Latest numbers are in the "Latest eval numbers" section and in eval/reports/latest.md. -->
 
 ## Features
 
@@ -109,6 +108,27 @@ pytest -m slow tests/eval/                           # CI threshold gates
 ```
 
 See [`eval/README.md`](eval/README.md) for the metric definitions, cost ($0), and how the comparison reports are produced.
+
+### Latest eval numbers
+
+Smoke run on the PubMedQA-seeded eval set, Groq `llama-3.3-70b-versatile` as the RAGAS judge, all metrics reproducible from `eval/reports/`.
+
+| Metric | Score | CI threshold | Pass |
+|---|---:|---:|:---:|
+| `answer_relevancy` | **0.866** | — | ✅ |
+| `faithfulness` | 0.542 | 0.75 | ❌ |
+| `context_precision` | 0.250 | 0.70 | ❌ |
+| `context_recall` | 0.000 | — | — |
+
+Retrieval (`hit@k`, MRR) on the same set with the project's `all-MiniLM-L6-v2` embeddings indexed via local ChromaDB:
+
+| Model | hit@1 | hit@3 | hit@5 | MRR |
+|---|---:|---:|---:|---:|
+| `sentence-transformers/all-MiniLM-L6-v2` | 1.000 | 1.000 | 1.000 | 1.000 |
+
+**Interpretation.** Answer relevancy is strong; context precision/recall are weak because RAGAS measures whether retrieved passages *individually* support each grounded claim, and the smoke index is sparse. The faithfulness gap (0.54 vs the 0.75 CI threshold) is the headline number — and the one I'm targeting next via three already-shipped changes: hybrid retrieval is now wired into the standard chat path (was agent-only), the system prompt now refuses to invent facts beyond retrieved context, and Jina reranker auto-enables when `JINA_API_KEY` is present. Re-run after seeding a 50-row PubMedQA corpus to measure the lift.
+
+The point isn't that the scores are perfect — it's that **every claim in this README is backed by a number you can reproduce locally**.
 
 ## Observability
 
@@ -285,15 +305,13 @@ The compose stack swaps SQLite for PostgreSQL, builds both Dockerfiles, and wire
 
 ## Screenshots
 
-### Chat Interface
-- Modern chat UI with AI responses
-- Source citations from uploaded documents
-- Conversation history in sidebar
+A picture of the system is worth more than another bullet list, so the most informative views are linked inline above:
 
-### Document Management
-- Drag-and-drop file upload
-- Document list with metadata
-- Search across all documents
+- **Architecture** — see the Mermaid diagram in the [Architecture](#architecture) section (renders directly on GitHub).
+- **Trace tree** — see the Langfuse trace tree under [Observability](#observability). Every chat request emits this tree with token, cost, and latency captured.
+- **Eval numbers** — see [Latest eval numbers](#latest-eval-numbers). Every score links back to a JSON in `eval/results/` you can reproduce.
+
+UI screenshots and a short demo clip live under `docs/screenshots/` once committed — see `docs/screenshots/README.md` for the capture checklist.
 
 ## Contributing
 
