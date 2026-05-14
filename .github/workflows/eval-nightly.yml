@@ -1,0 +1,65 @@
+name: Eval Nightly
+
+# Full 50-row RAGAS eval, nightly. Writes eval/reports/latest.md + a JSON
+# badge that the README links to (via shields.io endpoint).
+#
+# Free-tier reality: the nightly Groq spend is well under the 14.4k req/day
+# free-tier cap (50 rows × 4 metrics × judge LLM ≈ 200 calls per run).
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # to commit the updated report + badge to gh-pages
+
+jobs:
+  full-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run RAGAS eval
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python -m eval.runners.ragas_runner
+      - name: Write shields.io badge JSON
+        run: |
+          python - <<'PY'
+          import json, glob, os
+          # Find newest results file.
+          files = sorted(glob.glob("eval/results/ragas_*.json"))
+          if not files:
+              raise SystemExit("no eval result file produced")
+          data = json.load(open(files[-1]))
+          faith = data["aggregates"].get("faithfulness")
+          color = "brightgreen" if faith and faith >= 0.85 else (
+              "yellow" if faith and faith >= 0.7 else "red"
+          )
+          badge = {
+              "schemaVersion": 1,
+              "label": "RAG faithfulness",
+              "message": f"{faith:.2f}" if faith else "n/a",
+              "color": color,
+          }
+          os.makedirs("eval/reports", exist_ok=True)
+          json.dump(badge, open("eval/reports/badge.json", "w"))
+          print("badge:", badge)
+          PY
+      - name: Publish report + badge to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: eval/reports
+          keep_files: true
+          enable_jekyll: false
+          commit_message: "eval: nightly RAGAS update"

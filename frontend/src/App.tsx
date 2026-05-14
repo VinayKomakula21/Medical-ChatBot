@@ -31,7 +31,7 @@ function MainApp() {
     return {
       temperature: 0.5,
       maxTokens: 200,
-      streamMode: false,
+      streamMode: true,
       theme: 'system',
     };
   });

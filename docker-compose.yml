@@ -1,0 +1,62 @@
+# Local production-shape stack. Postgres replaces the dev SQLite.
+#
+# Quickstart:
+#   cp .env .env.docker   # then edit DATABASE_URL to point at the postgres service
+#   docker compose up --build
+#
+# Services:
+#   - app       FastAPI backend on :8000
+#   - frontend  React app on :5173 (nginx-served bundle)
+#   - postgres  prod-shape DB
+#
+# All keys come from .env (excluded by .dockerignore from the image, mounted at runtime).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medibot
+      POSTGRES_PASSWORD: medibot
+      POSTGRES_DB: medibot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medibot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://medibot:medibot@postgres:5432/medibot
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
