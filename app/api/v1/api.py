@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, chat, documents, health
+from app.api.v1.endpoints import agent, auth, chat, documents, health
 
 api_router = APIRouter()
 
@@ -26,4 +26,11 @@ api_router.include_router(
     health.router,
     prefix="/health",
     tags=["health"]
+)
+
+# Agentic endpoint (Item #9). Opt-in via AGENT_ENABLED env var.
+api_router.include_router(
+    agent.router,
+    prefix="/agent",
+    tags=["agent"]
 )
